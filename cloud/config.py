@@ -49,6 +49,18 @@ THUMBNAIL_MINUTES = 3
 # burn the operator's managed Gemini budget. Pure-text calls (titles/desc) stay free.
 MANAGED_ANALYSIS_MINUTES = 1
 
+# Post-processing FFmpeg re-encodes (subtitle burn, hook overlay) and the
+# Remotion render proxy do real server compute per call. Meter a small fixed
+# cost so an entitled user can't loop them for free off-quota.
+SUBTITLE_MINUTES = 2
+HOOK_MINUTES = 1
+RENDER_MINUTES = 3
+
+# The thumbnail-studio upload kicks off a (possibly YouTube) download + a full
+# Whisper transcription in the background — expensive and proxy-bandwidth-heavy.
+# Charge a fixed guard cost up front, settled when the background job finishes.
+TRANSCRIBE_MINUTES = 2
+
 # Stripe prices are resolved at runtime by these stable lookup_keys, so no price
 # IDs need to be copied into env vars (they differ between test and live anyway).
 SUBSCRIPTION_LOOKUP_KEYS = [

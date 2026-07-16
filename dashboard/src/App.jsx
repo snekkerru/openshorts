@@ -138,7 +138,7 @@ const SESSION_MAX_AGE = 3600000; // 1 hour (matches server job retention)
 
 // Mock polling function
 const pollJob = async (jobId) => {
-  const res = await fetch(getApiUrl(`/api/status/${jobId}`));
+  const res = await apiFetch(`/api/status/${jobId}`);
   if (!res.ok) throw new Error('Status check failed');
   return res.json();
 };

@@ -294,4 +294,6 @@ Contributions are welcome! Whether it's adding new AI models, improving the lip-
 
 ## License
 
-MIT License. OpenShorts is yours to use, modify, and scale.
+MIT License for the core application — OpenShorts is yours to use, modify, and scale.
+
+**Exception:** the [`cloud/`](cloud/LICENSE) directory (billing, managed keys, and the hosted-service infrastructure behind the optional `BILLING_ENABLED` flag) is source-available under the OpenShorts Commercial License. You can read it, modify it, and self-host it for personal or internal use, but you can't offer it to third parties as a paid/hosted service. Self-hosting the core app never requires this directory.

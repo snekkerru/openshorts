@@ -221,9 +221,19 @@ def scrape_website(url: str) -> dict:
     for sub_url in list(subpages)[:3]:
         try:
             print(f"[SaaSShorts]   → Subpage: {sub_url}")
-            with httpx.Client(timeout=20.0, follow_redirects=True) as client:
-                resp = client.get(sub_url, headers=headers)
-                if resp.status_code == 200:
+            # Same SSRF guard as the main page: no auto-redirects and re-validate
+            # every hop, so a same-host page can't 30x-bounce us onto an internal
+            # host (e.g. 169.254.169.254 cloud metadata).
+            sub_current = assert_public_url(sub_url)
+            with httpx.Client(timeout=20.0, follow_redirects=False) as client:
+                resp = None
+                for _ in range(5):
+                    resp = client.get(sub_current, headers=headers)
+                    if resp.has_redirect_location:
+                        sub_current = assert_public_url(str(resp.next_request.url))
+                        continue
+                    break
+                if resp is not None and resp.status_code == 200:
                     sub_soup = BeautifulSoup(resp.text, "html.parser")
                     for tag in sub_soup(["script", "style", "nav", "footer", "header", "noscript"]):
                         tag.decompose()

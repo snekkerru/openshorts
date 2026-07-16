@@ -202,6 +202,34 @@ async def require_managed_entitlement(request):
         raise gemini_missing_error()
     return user
 
+
+async def _owner_id(request):
+    """The authenticated cloud user's id to stamp on a new job/session, or None
+    for self-host / BYOK / anonymous (BILLING off → nothing to scope)."""
+    if not BILLING_ENABLED:
+        return None
+    user = await _user_from_request(request)
+    return user.id if user else None
+
+
+async def _assert_job_owner(request, record):
+    """Cloud multi-tenant guard: reject unless the caller owns this in-memory
+    job/session record.
+
+    No-op for self-host (BILLING off) and for records with no owner stamped
+    (BYOK / self-host jobs never set ``user_id``). Returns 404 rather than 403 so
+    a non-owner can't even confirm the id exists. UUID ids already make these
+    stores hard to enumerate; this closes the gap for a shared/leaked id.
+    """
+    if not BILLING_ENABLED:
+        return
+    owner = record.get("user_id") if isinstance(record, dict) else None
+    if owner is None:
+        return
+    user = await _user_from_request(request)
+    if user is None or user.id != owner:
+        raise HTTPException(status_code=404, detail="Not found")
+
 # Application State
 # PriorityQueue holds (priority, seq, job_id). Lower priority dispatches first:
 # pro=0, starter/creator=1, BYOK/anonymous/self-host=2. The seq counter keeps
@@ -632,8 +660,11 @@ async def process_endpoint(
     if url:
         cmd.extend(["-u", url])
     else:
-        # Save uploaded file with size limit check
-        input_path = os.path.join(UPLOAD_DIR, f"{job_id}_{file.filename}")
+        # Save uploaded file with size limit check.
+        # basename() strips any path components from the client-supplied
+        # filename so a name like "../../main.py" can't escape UPLOAD_DIR.
+        safe_name = os.path.basename(file.filename or "upload") or "upload"
+        input_path = os.path.join(UPLOAD_DIR, f"{job_id}_{safe_name}")
 
         # Read file in chunks to check size
         size = 0
@@ -674,11 +705,12 @@ async def process_endpoint(
     return {"job_id": job_id, "status": "queued"}
 
 @app.get("/api/status/{job_id}")
-async def get_status(job_id: str):
+async def get_status(job_id: str, request: Request):
     if job_id not in jobs:
         raise HTTPException(status_code=404, detail="Job not found")
-    
+
     job = jobs[job_id]
+    await _assert_job_owner(request, job)
     return {
         "status": job['status'],
         "logs": job['logs'],
@@ -702,8 +734,11 @@ async def edit_clip(
     req: EditRequest,
     request: Request,
 ):
-    # BYOK body key wins; otherwise resolve header / managed / self-host env.
-    final_api_key = req.api_key or await resolve_gemini(request)
+    # Cloud (paid) mode disables BYOK: ignore any body api_key so it can't skip
+    # the entitlement gate or metering (mirrors resolve_gemini ignoring the
+    # header). Self-host keeps BYOK — the body key wins there.
+    body_key = None if BILLING_ENABLED else req.api_key
+    final_api_key = body_key or await resolve_gemini(request)
 
     if not final_api_key:
         raise gemini_missing_error()
@@ -712,13 +747,14 @@ async def edit_clip(
         raise HTTPException(status_code=404, detail="Job not found")
 
     job = jobs[req.job_id]
+    await _assert_job_owner(request, job)
     if 'result' not in job or 'clips' not in job['result']:
         raise HTTPException(status_code=400, detail="Job result not available")
 
-    # Meter the managed Gemini call so it can't be looped for free. Skip when the
-    # caller supplied their own key (BYOK body) or self-host (reserve is a no-op).
+    # Meter the managed Gemini call so it can't be looped for free. Skip only for
+    # genuine BYOK (self-host body key) — in cloud, body_key is always None.
     edit_minutes = _cloud_config.MANAGED_ANALYSIS_MINUTES if BILLING_ENABLED else 0
-    reservation_id = None if req.api_key else await reserve_managed_action(
+    reservation_id = None if body_key else await reserve_managed_action(
         request, edit_minutes, req.job_id, "edit")
 
     try:
@@ -845,11 +881,12 @@ class SubtitleRequest(BaseModel):
 
 
 @app.get("/api/clip/{job_id}/{clip_index}/transcript")
-async def get_clip_transcript(job_id: str, clip_index: int):
+async def get_clip_transcript(job_id: str, clip_index: int, request: Request):
     """Return word-level captions for a specific clip, formatted for Remotion."""
     if job_id not in jobs:
         raise HTTPException(status_code=404, detail="Job not found")
 
+    await _assert_job_owner(request, jobs[job_id])
     output_dir = os.path.join(OUTPUT_DIR, job_id)
     json_files = glob.glob(os.path.join(output_dir, "*_metadata.json"))
 
@@ -900,11 +937,19 @@ async def proxy_render(request: Request):
     await require_managed_entitlement(request)
     import httpx
     body = await request.json()
+    render_minutes = _cloud_config.RENDER_MINUTES if BILLING_ENABLED else 0
+    reservation_id = await reserve_managed_action(
+        request, render_minutes, str(uuid.uuid4()), "render")
     try:
         async with httpx.AsyncClient(timeout=30.0) as client:
             resp = await client.post(f"{RENDER_SERVICE_URL}/render", json=body)
-            return resp.json()
+        result = resp.json()
+        if reservation_id:
+            await _metering.commit_reservation(reservation_id)
+        return result
     except Exception as e:
+        if reservation_id:
+            await _metering.release_reservation(reservation_id)
         raise HTTPException(status_code=502, detail=f"Render service unavailable: {e}")
 
 @app.get("/api/render/{render_id}")
@@ -939,6 +984,7 @@ async def generate_effects_config(
         raise HTTPException(status_code=404, detail="Job not found")
 
     job = jobs[req.job_id]
+    await _assert_job_owner(request, job)
     if 'result' not in job or 'clips' not in job['result']:
         raise HTTPException(status_code=400, detail="Job result not available")
 
@@ -1047,7 +1093,8 @@ async def add_subtitles(req: SubtitleRequest, request: Request):
     
     # Reload job data from disk just in case metadata was updated
     job = jobs[req.job_id]
-    
+    await _assert_job_owner(request, job)
+
     # We need to access metadata.json to get the transcript
     output_dir = os.path.join(OUTPUT_DIR, req.job_id)
     json_files = glob.glob(os.path.join(output_dir, "*_metadata.json"))
@@ -1093,7 +1140,13 @@ async def add_subtitles(req: SubtitleRequest, request: Request):
     # We create a new file "subtitled_..."
     output_filename = f"subtitled_{filename}"
     output_path = os.path.join(output_dir, output_filename)
-    
+
+    # Meter the FFmpeg re-encode (and any dubbed-video re-transcription) so it
+    # can't be looped for free off-quota. No-op for BYOK / self-host.
+    subtitle_minutes = _cloud_config.SUBTITLE_MINUTES if BILLING_ENABLED else 0
+    reservation_id = await reserve_managed_action(
+        request, subtitle_minutes, req.job_id, "subtitle")
+
     try:
         # 1. Generate SRT
         # Check if this is a dubbed video - if so, transcribe it fresh
@@ -1126,8 +1179,13 @@ async def add_subtitles(req: SubtitleRequest, request: Request):
         
     except Exception as e:
         print(f"❌ Subtitle Error: {e}")
+        if reservation_id:
+            await _metering.release_reservation(reservation_id)
         raise HTTPException(status_code=500, detail=str(e))
-        
+
+    if reservation_id:
+        await _metering.commit_reservation(reservation_id)
+
     # 3. Update Result and Metadata
     # Update InMemory Jobs
     if req.clip_index < len(job['result']['clips']):
@@ -1166,8 +1224,9 @@ async def add_hook(req: HookRequest, request: Request):
     await require_managed_entitlement(request)
     if req.job_id not in jobs:
         raise HTTPException(status_code=404, detail="Job not found")
-    
+
     job = jobs[req.job_id]
+    await _assert_job_owner(request, job)
     output_dir = os.path.join(OUTPUT_DIR, req.job_id)
     json_files = glob.glob(os.path.join(output_dir, "*_metadata.json"))
     
@@ -1203,19 +1262,29 @@ async def add_hook(req: HookRequest, request: Request):
     # Map Size to Scale
     size_map = {"S": 0.8, "M": 1.0, "L": 1.3}
     font_scale = size_map.get(req.size, 1.0)
-    
+
+    # Meter the FFmpeg overlay re-encode (no-op for BYOK / self-host).
+    hook_minutes = _cloud_config.HOOK_MINUTES if BILLING_ENABLED else 0
+    reservation_id = await reserve_managed_action(
+        request, hook_minutes, req.job_id, "hook")
+
     try:
         # Run in thread pool
         def run_hook():
              add_hook_to_video(input_path, req.text, output_path, position=req.position, font_scale=font_scale)
-        
+
         loop = asyncio.get_event_loop()
         await loop.run_in_executor(None, run_hook)
-        
+
     except Exception as e:
         print(f"❌ Hook Error: {e}")
+        if reservation_id:
+            await _metering.release_reservation(reservation_id)
         raise HTTPException(status_code=500, detail=str(e))
-        
+
+    if reservation_id:
+        await _metering.commit_reservation(reservation_id)
+
     # Update Persistence (Same logic as subtitles)
     # Update InMemory Jobs
     if req.clip_index < len(job['result']['clips']):
@@ -1252,6 +1321,7 @@ async def get_languages():
 @app.post("/api/translate")
 async def translate_clip(
     req: TranslateRequest,
+    request: Request,
     x_elevenlabs_key: Optional[str] = Header(None, alias="X-ElevenLabs-Key")
 ):
     """Translate a video clip to a different language using ElevenLabs dubbing."""
@@ -1262,6 +1332,7 @@ async def translate_clip(
         raise HTTPException(status_code=404, detail="Job not found")
 
     job = jobs[req.job_id]
+    await _assert_job_owner(request, job)
     output_dir = os.path.join(OUTPUT_DIR, req.job_id)
     json_files = glob.glob(os.path.join(output_dir, "*_metadata.json"))
 
@@ -1362,6 +1433,7 @@ async def post_to_socials(req: SocialPostRequest, request: Request):
         raise HTTPException(status_code=400, detail="Missing Upload-Post user profile")
 
     job = jobs[req.job_id]
+    await _assert_job_owner(request, job)
     if 'result' not in job or 'clips' not in job['result']:
         raise HTTPException(status_code=400, detail="Job result not available")
 
@@ -1521,16 +1593,31 @@ async def thumbnail_upload(
     session_id = str(uuid.uuid4())
     transcript_event = asyncio.Event()
 
-    # Save file if uploaded directly
+    # Save file if uploaded directly. basename() stops a "../../x" filename from
+    # escaping UPLOAD_DIR; the chunked read caps memory so a huge body can't OOM.
     video_path = None
     if file:
-        video_path = os.path.join(UPLOAD_DIR, f"thumb_{session_id}_{file.filename}")
+        safe_name = os.path.basename(file.filename or "upload") or "upload"
+        video_path = os.path.join(UPLOAD_DIR, f"thumb_{session_id}_{safe_name}")
+        size = 0
+        limit_bytes = MAX_FILE_SIZE_MB * 1024 * 1024
         with open(video_path, "wb") as buffer:
-            content = await file.read()
-            buffer.write(content)
+            while chunk := await file.read(1024 * 1024):
+                size += len(chunk)
+                if size > limit_bytes:
+                    os.remove(video_path)
+                    raise HTTPException(status_code=413, detail=f"File too large. Max size {MAX_FILE_SIZE_MB}MB")
+                buffer.write(chunk)
+
+    # Meter a fixed guard cost for the background download + Whisper transcription
+    # so an entitled user can't loop it for free. Settled when the job finishes.
+    transcribe_minutes = _cloud_config.TRANSCRIBE_MINUTES if BILLING_ENABLED else 0
+    reservation_id = await reserve_managed_action(
+        request, transcribe_minutes, session_id, "thumbnail_transcribe")
 
     # Initialize session
     thumbnail_sessions[session_id] = {
+        "user_id": await _owner_id(request),
         "video_path": video_path,
         "transcript_event": transcript_event,
         "transcript_ready": False,
@@ -1568,9 +1655,13 @@ async def thumbnail_upload(
                 "language": transcript.get("language", "en"),
             })
             print(f"✅ [Thumbnail] Background Whisper complete for session {session_id}")
+            if reservation_id:
+                await _metering.commit_reservation(reservation_id)
         except Exception as e:
             print(f"❌ [Thumbnail] Background Whisper failed: {e}")
             thumbnail_sessions[session_id]["transcript_error"] = str(e)
+            if reservation_id:
+                await _metering.release_reservation(reservation_id)
         finally:
             transcript_event.set()
 
@@ -1597,6 +1688,7 @@ async def thumbnail_analyze(
     # Check for pre-existing session with background Whisper
     if session_id and session_id in thumbnail_sessions:
         session = thumbnail_sessions[session_id]
+        await _assert_job_owner(request, session)
 
         # Wait for background Whisper to complete
         transcript_event = session.get("transcript_event")
@@ -1624,10 +1716,17 @@ async def thumbnail_analyze(
             from main import download_youtube_video
             video_path, _ = download_youtube_video(url, UPLOAD_DIR)
         else:
-            video_path = os.path.join(UPLOAD_DIR, f"thumb_{session_id}_{file.filename}")
+            safe_name = os.path.basename(file.filename or "upload") or "upload"
+            video_path = os.path.join(UPLOAD_DIR, f"thumb_{session_id}_{safe_name}")
+            size = 0
+            limit_bytes = MAX_FILE_SIZE_MB * 1024 * 1024
             with open(video_path, "wb") as buffer:
-                content = await file.read()
-                buffer.write(content)
+                while chunk := await file.read(1024 * 1024):
+                    size += len(chunk)
+                    if size > limit_bytes:
+                        os.remove(video_path)
+                        raise HTTPException(status_code=413, detail=f"File too large. Max size {MAX_FILE_SIZE_MB}MB")
+                    buffer.write(chunk)
 
     # Meter the managed Gemini analysis (no-op for self-host).
     analyze_minutes = _cloud_config.MANAGED_ANALYSIS_MINUTES if BILLING_ENABLED else 0
@@ -1640,7 +1739,7 @@ async def thumbnail_analyze(
 
         # Store/update session context
         if session_id not in thumbnail_sessions:
-            thumbnail_sessions[session_id] = {}
+            thumbnail_sessions[session_id] = {"user_id": await _owner_id(request)}
 
         thumbnail_sessions[session_id].update({
             "context": result.get("transcript_summary", ""),
@@ -1689,11 +1788,14 @@ async def thumbnail_titles(
         session_id = req.session_id or str(uuid.uuid4())
         if session_id not in thumbnail_sessions:
             thumbnail_sessions[session_id] = {
+                "user_id": await _owner_id(request),
                 "context": "",
                 "titles": [req.title],
                 "language": "en",
                 "conversation": []
             }
+        else:
+            await _assert_job_owner(request, thumbnail_sessions[session_id])
         return {"session_id": session_id, "titles": [req.title]}
 
     # Refinement mode
@@ -1704,6 +1806,7 @@ async def thumbnail_titles(
         raise HTTPException(status_code=400, detail="Must provide message or title")
 
     session = thumbnail_sessions[req.session_id]
+    await _assert_job_owner(request, session)
 
     # Add user message to conversation history
     session["conversation"].append({"role": "user", "content": req.message})
@@ -1753,20 +1856,24 @@ async def thumbnail_generate(
     thumb_minutes = _cloud_config.THUMBNAIL_MINUTES if BILLING_ENABLED else 0
     reservation_id = await reserve_managed_action(request, thumb_minutes, session_id, "thumbnail")
 
-    # Save optional uploaded images
+    # Save optional uploaded images. basename() on the session id and filenames
+    # keeps everything inside UPLOAD_DIR (no "../" escape from client input).
     face_path = None
     bg_path = None
-    thumb_upload_dir = os.path.join(UPLOAD_DIR, f"thumb_{session_id}")
+    safe_session = os.path.basename(session_id) or "session"
+    thumb_upload_dir = os.path.join(UPLOAD_DIR, f"thumb_{safe_session}")
     os.makedirs(thumb_upload_dir, exist_ok=True)
 
     try:
         if face and face.filename:
-            face_path = os.path.join(thumb_upload_dir, f"face_{face.filename}")
+            face_name = os.path.basename(face.filename)
+            face_path = os.path.join(thumb_upload_dir, f"face_{face_name}")
             with open(face_path, "wb") as f:
                 f.write(await face.read())
 
         if background and background.filename:
-            bg_path = os.path.join(thumb_upload_dir, f"bg_{background.filename}")
+            bg_name = os.path.basename(background.filename)
+            bg_path = os.path.join(thumb_upload_dir, f"bg_{bg_name}")
             with open(bg_path, "wb") as f:
                 f.write(await background.read())
 
@@ -1827,6 +1934,7 @@ async def thumbnail_describe(
         raise HTTPException(status_code=404, detail="Session not found")
 
     session = thumbnail_sessions[req.session_id]
+    await _assert_job_owner(request, session)
     segments = session.get("transcript_segments", [])
     if not segments:
         raise HTTPException(status_code=400, detail="No transcript segments available. Please analyze a video first.")
@@ -1873,6 +1981,7 @@ async def thumbnail_publish(
         raise HTTPException(status_code=400, detail="Missing Upload-Post user profile")
 
     session = thumbnail_sessions[session_id]
+    await _assert_job_owner(request, session)
     video_path = session.get("video_path")
     if not video_path or not os.path.exists(video_path):
         raise HTTPException(status_code=404, detail="Original video file not found")
@@ -2076,13 +2185,21 @@ class SaaSActorRequest(BaseModel):
 
 
 @app.post("/api/saasshorts/actor-upload")
-async def saasshorts_actor_upload(file: UploadFile = File(...)):
+async def saasshorts_actor_upload(request: Request, file: UploadFile = File(...)):
     """Upload a custom actor image (stored locally only, not S3)."""
+    # SaaSShorts is part of the paid product — require entitlement in cloud mode
+    # (no-op for self-host) so anonymous callers can't drive server work.
+    await require_managed_entitlement(request)
     if not file.content_type or not file.content_type.startswith("image/"):
         raise HTTPException(status_code=400, detail="File must be an image")
 
     try:
-        content = await file.read()
+        # Bounded read: an actor image has no business being large. Cap it so an
+        # anonymous caller can't stream a multi-GB body into RAM (OOM DoS).
+        ACTOR_IMAGE_MAX_BYTES = 25 * 1024 * 1024  # 25 MB
+        content = await file.read(ACTOR_IMAGE_MAX_BYTES + 1)
+        if len(content) > ACTOR_IMAGE_MAX_BYTES:
+            raise HTTPException(status_code=413, detail="Image too large (max 25 MB)")
 
         # Validate minimum size
         if len(content) < 1000:
@@ -2108,9 +2225,11 @@ async def saasshorts_actor_upload(file: UploadFile = File(...)):
 @app.post("/api/saasshorts/actor-options")
 async def saasshorts_actor_options(
     req: SaaSActorRequest,
+    request: Request,
     x_fal_key: Optional[str] = Header(None, alias="X-Fal-Key"),
 ):
     """Generate multiple actor image options for the user to choose from."""
+    await require_managed_entitlement(request)
     fal_key = x_fal_key
     if not fal_key:
         raise HTTPException(status_code=400, detail="Missing fal.ai API Key")
@@ -2186,6 +2305,7 @@ async def saasshorts_post_to_socials(req: SaaSPostRequest, request: Request):
         raise HTTPException(status_code=400, detail="Missing Upload-Post user profile")
 
     job = saas_jobs[req.job_id]
+    await _assert_job_owner(request, job)
     result = job.get("result")
     if not result or not result.get("video_url"):
         raise HTTPException(status_code=400, detail="No video available for this job")
@@ -2428,10 +2548,12 @@ class SaaSGenerateRequest(BaseModel):
 @app.post("/api/saasshorts/generate")
 async def saasshorts_generate(
     req: SaaSGenerateRequest,
+    request: Request,
     x_fal_key: Optional[str] = Header(None, alias="X-Fal-Key"),
     x_elevenlabs_key: Optional[str] = Header(None, alias="X-ElevenLabs-Key"),
 ):
     """Generate a SaaS UGC video from a script. Returns a job_id for polling."""
+    await require_managed_entitlement(request)
     fal_key = x_fal_key
     elevenlabs_key = x_elevenlabs_key
 
@@ -2443,12 +2565,17 @@ async def saasshorts_generate(
     # Support retry: reuse output_dir so cached assets (image, voice, head, broll) are kept
     reused = False
     if req.retry_job_id:
-        # Check memory first, then disk
-        old_dir = os.path.join(OUTPUT_DIR, f"saas_{req.retry_job_id}")
+        # Check memory first, then disk. _safe_under() blocks a crafted
+        # retry_job_id like "../../tmp/x" from escaping OUTPUT_DIR (the listdir
+        # below deletes files and the pipeline writes here). A known in-memory
+        # job keeps its trusted stored path.
         if req.retry_job_id in saas_jobs:
+            await _assert_job_owner(request, saas_jobs[req.retry_job_id])
             old_dir = saas_jobs[req.retry_job_id]["output_dir"]
+        else:
+            old_dir = _safe_under(OUTPUT_DIR, f"saas_{req.retry_job_id}")
 
-        if os.path.isdir(old_dir):
+        if old_dir and os.path.isdir(old_dir):
             job_id = req.retry_job_id
             job_output_dir = old_dir
             reused = True
@@ -2458,6 +2585,7 @@ async def saasshorts_generate(
                 if f.endswith("_final.mp4") and os.path.getsize(fp) == 0:
                     os.remove(fp)
             saas_jobs[job_id] = {
+                "user_id": await _owner_id(request),
                 "status": "processing",
                 "logs": [f"Retrying job {job_id[:8]}... reusing cached assets from disk."],
                 "result": None,
@@ -2469,6 +2597,7 @@ async def saasshorts_generate(
         job_output_dir = os.path.join(OUTPUT_DIR, f"saas_{job_id}")
         os.makedirs(job_output_dir, exist_ok=True)
         saas_jobs[job_id] = {
+            "user_id": await _owner_id(request),
             "status": "processing",
             "logs": ["SaaSShorts job started."],
             "result": None,
@@ -2580,12 +2709,13 @@ async def saasshorts_generate(
 
 
 @app.get("/api/saasshorts/status/{job_id}")
-async def saasshorts_status(job_id: str):
+async def saasshorts_status(job_id: str, request: Request):
     """Poll SaaSShorts job status."""
     if job_id not in saas_jobs:
         raise HTTPException(status_code=404, detail="SaaSShorts job not found")
 
     job = saas_jobs[job_id]
+    await _assert_job_owner(request, job)
     return {
         "status": job["status"],
         "logs": job["logs"],

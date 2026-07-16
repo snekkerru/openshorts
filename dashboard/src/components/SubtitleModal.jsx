@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { X, Type, Loader2 } from 'lucide-react';
 import { getApiUrl } from '../config';
+import { apiFetch } from '../lib/api';
 import RemotionPreview from './RemotionPreview';
 
 const FONT_OPTIONS = [
@@ -54,7 +55,7 @@ export default function SubtitleModal({ isOpen, onClose, onGenerate, isProcessin
         if (!isOpen || !jobId || clipIndex === undefined) return;
 
         setCaptionsLoading(true);
-        fetch(getApiUrl(`/api/clip/${jobId}/${clipIndex}/transcript`))
+        apiFetch(`/api/clip/${jobId}/${clipIndex}/transcript`)
             .then((res) => res.ok ? res.json() : null)
             .then((data) => {
                 if (data && data.captions && data.captions.length > 0) {

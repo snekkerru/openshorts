@@ -1,6 +1,7 @@
 import React, { useState, useMemo } from 'react';
 import { X, Loader2, Calendar, Clock, CheckCircle, AlertCircle, Video, Instagram, Youtube, ChevronLeft, ChevronRight, Globe, ExternalLink } from 'lucide-react';
 import { getApiUrl } from '../config';
+import { apiFetch } from '../lib/api';
 
 const DAYS = ['Dom', 'Lun', 'Mar', 'Mié', 'Jue', 'Vie', 'Sáb'];
 const MONTHS = ['Ene', 'Feb', 'Mar', 'Abr', 'May', 'Jun', 'Jul', 'Ago', 'Sep', 'Oct', 'Nov', 'Dic'];
@@ -134,7 +135,7 @@ export default function ScheduleWeekModal({ isOpen, onClose, clips, jobId, uploa
             };
 
             try {
-                const res = await fetch(getApiUrl('/api/social/post'), {
+                const res = await apiFetch('/api/social/post', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify(payload)

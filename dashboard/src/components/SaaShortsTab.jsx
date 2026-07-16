@@ -144,7 +144,7 @@ export default function SaaShortsTab({ geminiApiKey, elevenLabsKey, falKey, uplo
     if (jobId && genStatus === 'processing') {
       interval = setInterval(async () => {
         try {
-          const res = await fetch(getApiUrl(`/api/saasshorts/status/${jobId}`));
+          const res = await apiFetch(`/api/saasshorts/status/${jobId}`);
           if (res.status === 404) {
             // Job lost (server restart) — treat as failed so Retry appears
             setGenStatus('failed');
@@ -1015,7 +1015,7 @@ export default function SaaShortsTab({ geminiApiKey, elevenLabsKey, falKey, uplo
                           const formData = new FormData();
                           formData.append('file', file);
                           try {
-                            const res = await fetch(getApiUrl('/api/saasshorts/actor-upload'), {
+                            const res = await apiFetch('/api/saasshorts/actor-upload', {
                               method: 'POST',
                               body: formData,
                             });
@@ -1078,7 +1078,7 @@ export default function SaaShortsTab({ geminiApiKey, elevenLabsKey, falKey, uplo
                     setActorOptions([]);
                     setSelectedActor(null);
                     try {
-                      const res = await fetch(getApiUrl('/api/saasshorts/actor-options'), {
+                      const res = await apiFetch('/api/saasshorts/actor-options', {
                         method: 'POST',
                         headers: { 'Content-Type': 'application/json', 'X-Fal-Key': falKey },
                         body: JSON.stringify({ actor_description: actorDescription, num_options: 3 }),
