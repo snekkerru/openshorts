@@ -1,5 +1,7 @@
 import React from 'react';
 import { Sparkles, Zap, Globe, FileVideo, Subtitles, Youtube, Instagram, Shield, Github, ArrowRight, Play, Check, ChevronDown, Monitor, Cpu, Languages, Type, Upload, Scissors } from 'lucide-react';
+import PricingSection from './components/PricingSection';
+import { useAuth } from './contexts/AuthContext';
 
 const TikTokIcon = ({ size = 16, className = "" }) => (
   <svg width={size} height={size} viewBox="0 0 24 24" fill="currentColor" className={className}>
@@ -56,6 +58,7 @@ const FAQItem = ({ question, answer, isOpen, onClick }) => (
 );
 
 export default function Landing({ onLaunchApp }) {
+  const { billingEnabled } = useAuth();
   const [openFaq, setOpenFaq] = React.useState(null);
 
   const features = [
@@ -199,6 +202,7 @@ export default function Landing({ onLaunchApp }) {
           <div className="hidden md:flex items-center gap-8 text-sm text-zinc-400">
             <a href="#features" className="hover:text-white transition-colors">Features</a>
             <a href="#how-it-works" className="hover:text-white transition-colors">How It Works</a>
+            {billingEnabled && <a href="#pricing" className="hover:text-white transition-colors">Pricing</a>}
             <a href="#comparison" className="hover:text-white transition-colors">Comparison</a>
             <a href="#faq" className="hover:text-white transition-colors">FAQ</a>
           </div>
@@ -336,16 +340,33 @@ export default function Landing({ onLaunchApp }) {
               <span className="text-[10px] bg-primary/10 border border-primary/30 px-2 py-0.5 rounded text-primary uppercase tracking-wider">From $12/mo</span>
             </div>
             <p className="text-zinc-400 text-sm leading-relaxed mb-5 flex-1">
-              Zero setup, no API keys, we run all the AI and compute for you. <b>3-day free trial</b>, then a plan
-              from $12/mo (100 min). Best if you just want to make clips without any technical hassle.
+              Zero setup, no API keys — we run all the AI and compute for you, and every clip you make is saved
+              to your private library. Sign in with email or Google. <b>3-day free trial</b>, then a plan from
+              $12/mo (100 min). Best if you just want to make clips without any technical hassle.
             </p>
-            <button onClick={() => { window.location.hash = '#/pricing'; }}
+            <a href="#pricing"
               className="inline-flex items-center justify-center gap-2 bg-primary hover:bg-blue-600 text-white px-5 py-3 rounded-xl font-medium transition-all">
               See plans <ArrowRight size={18} />
-            </button>
+            </a>
           </div>
         </div>
       </section>
+
+      {/* Pricing Section — hosted plans (self-host stays free) */}
+      {billingEnabled && (
+        <section id="pricing" className="py-20 px-6 bg-surface/20">
+          <div className="max-w-6xl mx-auto">
+            <div className="text-center mb-12">
+              <h2 className="text-3xl md:text-4xl font-bold mb-4">Simple, transparent pricing</h2>
+              <p className="text-zinc-400 max-w-2xl mx-auto">
+                Same features on every plan — you only pay for volume. Start with a 3-day free trial (card required,
+                20 free minutes), cancel anytime. Prefer to self-host? It stays free forever.
+              </p>
+            </div>
+            <PricingSection onRequireLogin={() => { window.location.hash = '#/pricing'; }} />
+          </div>
+        </section>
+      )}
 
       {/* 3 Tools in 1 Section */}
       <section className="py-20 px-6">

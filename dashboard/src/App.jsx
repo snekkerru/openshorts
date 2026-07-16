@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Upload, FileVideo, Sparkles, Youtube, Instagram, Share2, LogOut, ChevronDown, Check, Activity, LayoutDashboard, Settings, PlusCircle, History, Menu, X, Terminal, Shield, LayoutGrid, Image, Globe, RotateCcw, Calendar, AlertTriangle, KeyRound, Bot, Users, Smartphone, ExternalLink, Copy, CheckCircle2 } from 'lucide-react';
+import { Upload, FileVideo, Sparkles, Youtube, Instagram, Share2, LogOut, ChevronDown, Check, Activity, LayoutDashboard, Settings, PlusCircle, History, Menu, X, Terminal, Shield, LayoutGrid, Image, Globe, RotateCcw, Calendar, AlertTriangle, KeyRound, Bot, Users, Smartphone, ExternalLink, Copy, CheckCircle2, Mail } from 'lucide-react';
 import KeyInput from './components/KeyInput';
 import MediaInput from './components/MediaInput';
 import ResultCard from './components/ResultCard';
@@ -527,6 +527,32 @@ function App() {
           <div className="hidden lg:block overflow-hidden">
             <p className="text-sm font-bold text-white leading-none mb-0.5">Open Source</p>
             <p className="text-[10px] text-zinc-400 group-hover:text-zinc-300 transition-colors truncate">Free & Community Driven</p>
+          </div>
+        </a>
+        {billingEnabled && (
+          <a
+            href="#/pricing"
+            className="flex items-center gap-2 p-3 bg-white/5 hover:bg-white/10 rounded-xl transition-colors group"
+          >
+            <div className="w-8 h-8 rounded-full bg-primary/20 text-primary flex items-center justify-center shrink-0">
+              <Sparkles size={16} />
+            </div>
+            <div className="hidden lg:block overflow-hidden">
+              <p className="text-sm font-bold text-white leading-none mb-0.5">Plans &amp; Pricing</p>
+              <p className="text-[10px] text-zinc-400 group-hover:text-zinc-300 transition-colors truncate">View all plans</p>
+            </div>
+          </a>
+        )}
+        <a
+          href="mailto:info@openshorts.app"
+          className="flex items-center gap-2 p-3 bg-white/5 hover:bg-white/10 rounded-xl transition-colors group"
+        >
+          <div className="w-8 h-8 rounded-full bg-primary/20 text-primary flex items-center justify-center shrink-0">
+            <Mail size={16} />
+          </div>
+          <div className="hidden lg:block overflow-hidden">
+            <p className="text-sm font-bold text-white leading-none mb-0.5">Support</p>
+            <p className="text-[10px] text-zinc-400 group-hover:text-zinc-300 transition-colors truncate">info@openshorts.app</p>
           </div>
         </a>
       </div>
