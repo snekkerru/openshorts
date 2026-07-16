@@ -7,12 +7,22 @@ import HookModal from './HookModal';
 import TranslateModal from './TranslateModal';
 import { renderInBrowser } from '../lib/renderInBrowser';
 
-export default function ResultCard({ clip, index, jobId, uploadPostKey, uploadUserId, geminiApiKey, elevenLabsKey, onPlay, onPause }) {
+export default function ResultCard({ clip, index, jobId, durableUrl, uploadPostKey, uploadUserId, geminiApiKey, elevenLabsKey, onPlay, onPause }) {
     const [showModal, setShowModal] = useState(false);
     const [showSubtitleModal, setShowSubtitleModal] = useState(false);
     const videoRef = React.useRef(null);
     const originalVideoUrl = getApiUrl(clip.video_url); // Never changes — used for Remotion previews
     const [currentVideoUrl, setCurrentVideoUrl] = useState(originalVideoUrl);
+    const [videoErrored, setVideoErrored] = useState(false);
+
+    // If the local video failed and a durable R2 URL is (now) available, use it.
+    // Handles the race where the video errors before the durable URL has loaded.
+    useEffect(() => {
+        if (videoErrored && durableUrl && currentVideoUrl !== durableUrl) {
+            setCurrentVideoUrl(durableUrl);
+            setVideoErrored(false);
+        }
+    }, [videoErrored, durableUrl, currentVideoUrl]);
 
     const [platforms, setPlatforms] = useState({
         tiktok: true,
@@ -393,6 +403,13 @@ export default function ResultCard({ clip, index, jobId, uploadPostKey, uploadUs
                     controls
                     className="w-full h-full object-cover"
                     playsInline
+                    onError={() => {
+                        // Local /videos/ file gone (e.g. cleaned up after a reload) →
+                        // fall back to the durable R2 copy for managed users. If the
+                        // durable URL hasn't loaded yet, the effect above retries.
+                        if (durableUrl && currentVideoUrl !== durableUrl) setCurrentVideoUrl(durableUrl);
+                        else setVideoErrored(true);
+                    }}
                     onPlay={() => {
                         const currentTime = videoRef.current ? videoRef.current.currentTime : 0;
                         onPlay && onPlay(clip.start + currentTime);

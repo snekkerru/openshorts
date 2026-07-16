@@ -150,6 +150,9 @@ function App() {
   const [showTopUp, setShowTopUp] = useState(false);
   const [showTrialUpgrade, setShowTrialUpgrade] = useState(false);
   const [topUpInfo, setTopUpInfo] = useState({});
+  // Durable R2 URLs (per clip index) for the current job — used as a fallback when
+  // the ephemeral local /videos/ files have been cleaned up (e.g. after a reload).
+  const [durableClips, setDurableClips] = useState({});
 
   const [apiKey, setApiKey] = useState(localStorage.getItem('gemini_key') || '');
   // Social API State - Load encrypted or plain
@@ -279,6 +282,24 @@ function App() {
       fetchUserProfiles();
     }
   }, [uploadPostKey]);
+
+  // For managed users, fetch the durable R2 URLs of the current job's clips so the
+  // preview can fall back to them when the local files have been cleaned up.
+  useEffect(() => {
+    if (!isManaged || !jobId || !(results?.clips?.length)) { setDurableClips({}); return; }
+    let cancelled = false;
+    apiJson('/api/history')
+      .then((d) => {
+        if (cancelled) return;
+        const map = {};
+        for (const v of (d.videos || [])) {
+          if (v.job_id === jobId && v.clip_index != null) map[v.clip_index] = v.view_url;
+        }
+        setDurableClips(map);
+      })
+      .catch(() => {});
+    return () => { cancelled = true; };
+  }, [isManaged, jobId, results]);
 
   useEffect(() => {
     let interval;
@@ -1141,6 +1162,7 @@ function App() {
                           clip={clip}
                           index={i}
                           jobId={jobId}
+                          durableUrl={durableClips[i]}
                           uploadPostKey={uploadPostKey}
                           uploadUserId={uploadUserId}
                           geminiApiKey={apiKey}

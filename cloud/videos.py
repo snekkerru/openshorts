@@ -62,6 +62,7 @@ async def history(request: Request):
         items.append({
             "id": str(v.id),
             "job_id": v.job_id,
+            "clip_index": v.clip_index,
             "title": v.title,
             "created_at": v.created_at.isoformat() if v.created_at else None,
             "size_bytes": v.size_bytes,
