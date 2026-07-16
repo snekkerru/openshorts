@@ -11,6 +11,7 @@ import UGCGallery from './components/UGCGallery';
 import ScheduleWeekModal from './components/ScheduleWeekModal';
 import UsageMeter from './components/UsageMeter';
 import TopUpModal from './components/TopUpModal';
+import TrialUpgradeModal from './components/TrialUpgradeModal';
 import LoginModal from './components/LoginModal';
 import TrialGate from './components/TrialGate';
 import AdvancedBanner from './components/AdvancedBanner';
@@ -144,9 +145,10 @@ const pollJob = async (jobId) => {
 
 function App() {
   // Cloud auth/billing session (inert when billing is disabled).
-  const { billingEnabled, isManaged, isSignedIn, signingIn } = useAuth();
+  const { billingEnabled, isManaged, isSignedIn, signingIn, me, plan, refreshMe } = useAuth();
   const [showLogin, setShowLogin] = useState(false);
   const [showTopUp, setShowTopUp] = useState(false);
+  const [showTrialUpgrade, setShowTrialUpgrade] = useState(false);
   const [topUpInfo, setTopUpInfo] = useState({});
 
   const [apiKey, setApiKey] = useState(localStorage.getItem('gemini_key') || '');
@@ -396,8 +398,14 @@ function App() {
     } catch (e) {
       if (e instanceof QuotaError) {
         setStatus('idle');
-        setTopUpInfo({ required: e.minutesRequired, remaining: e.minutesRemaining });
-        setShowTopUp(true);
+        // Trial users hit the trial minute cap → prompt them to activate the plan
+        // now (unlocks full minutes). Active users → offer a top-up.
+        if (me?.status === 'trialing') {
+          setShowTrialUpgrade(true);
+        } else {
+          setTopUpInfo({ required: e.minutesRequired, remaining: e.minutesRemaining });
+          setShowTopUp(true);
+        }
         return;
       }
       setStatus('error');
@@ -1228,6 +1236,13 @@ function App() {
           onClose={() => setShowTopUp(false)}
           required={topUpInfo.required}
           remaining={topUpInfo.remaining}
+        />
+      )}
+      {showTrialUpgrade && (
+        <TrialUpgradeModal
+          plan={plan}
+          onActivated={refreshMe}
+          onClose={() => setShowTrialUpgrade(false)}
         />
       )}
     </div>

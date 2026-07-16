@@ -153,6 +153,28 @@ async def create_checkout(body: CheckoutRequest, request: Request):
     return {"url": session.url}
 
 
+@router.post("/api/billing/end-trial")
+async def end_trial(request: Request):
+    """End the free trial immediately: charge the card now and unlock full plan
+    minutes. Used when a trialing user hits the trial minute cap and chooses to
+    activate their plan right away. The subscription webhook flips status→active
+    (and thus the full ``minutes_per_period`` allowance) once Stripe confirms."""
+    user = await get_current_user_required(request)
+    async with database.session() as session:
+        sub = (await session.execute(
+            select(Subscription).where(Subscription.user_id == user.id)
+        )).scalar_one_or_none()
+    if not sub or sub.status != "trialing":
+        raise HTTPException(status_code=409, detail="No active trial to convert.")
+    try:
+        updated = await asyncio.to_thread(lambda: stripe.Subscription.modify(
+            sub.stripe_subscription_id, trial_end="now",
+        ))
+    except Exception:
+        raise HTTPException(status_code=502, detail="Could not activate your plan. Try again.")
+    return {"status": updated.get("status", "active")}
+
+
 @router.post("/api/billing/portal")
 async def create_portal(request: Request):
     user = await get_current_user_required(request)

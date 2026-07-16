@@ -26,7 +26,7 @@ from decimal import Decimal
 
 from sqlalchemy import select, update, func, and_
 
-from . import database
+from . import config, database
 from .models import User, Subscription, CreditTopup, UsageLedger
 
 
@@ -143,6 +143,10 @@ async def _balance(session, user_id):
     """Return a dict of the user's current minute balance (read-only)."""
     sub = await _active_subscription(session, user_id)
     plan_allowance = _D(sub.minutes_per_period) if sub else _D(0)
+    # During the trial, cap the allowance so a cancel-before-charge account can't
+    # burn a whole plan's worth of managed minutes. Full allowance once active.
+    if sub and sub.status == "trialing":
+        plan_allowance = min(plan_allowance, _D(config.TRIAL_MINUTE_CAP))
     period_end = sub.current_period_end if sub else None
     plan_used = await _plan_used_this_period(session, user_id, period_end) if sub else _D(0)
     plan_remaining = max(_D(0), plan_allowance - plan_used)

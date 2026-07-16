@@ -72,10 +72,12 @@ export default function Legal() {
                     </p>
                     <p>
                         <strong className="text-white">Free trial:</strong> new subscriptions start with a{' '}
-                        <strong className="text-white">3-day free trial</strong>. You provide a payment method up front
-                        but are <strong className="text-white">not charged during the trial</strong>. If you do not
-                        cancel before the trial ends, your subscription automatically begins and your payment method is
-                        charged the plan price. You can cancel at any time from your account.
+                        <strong className="text-white">3-day free trial</strong> that includes up to{' '}
+                        <strong className="text-white">20 minutes</strong> of video processing. You provide a payment
+                        method up front but are <strong className="text-white">not charged during the trial</strong>. If
+                        you do not cancel before the trial ends, your subscription automatically begins, your full plan
+                        minutes unlock, and your payment method is charged the plan price. You can cancel at any time from
+                        your account.
                     </p>
                     <p>
                         <strong className="text-white">Auto-renewal:</strong> subscriptions renew automatically each

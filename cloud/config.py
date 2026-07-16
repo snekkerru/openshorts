@@ -28,8 +28,14 @@ PLAN_MINUTES = {
 }
 
 # Free trial length (days) for new subscriptions. Card required; auto-charges at
-# the end. No minute cap during the trial — the card + Stripe Radar deter abuse.
+# the end.
 TRIAL_DAYS = 3
+
+# Minute cap DURING the trial (across all plans). Enough to evaluate the product,
+# but bounds the free managed-compute / proxy exposure per sign-up so a
+# cancel-before-charge account can't burn a full plan's worth of minutes. Once the
+# trial converts to an active subscription the full plan allowance applies.
+TRIAL_MINUTE_CAP = 20
 
 # Gemini IMAGE generation (thumbnails) is the one expensive managed Gemini call
 # (~$0.04/image, batch of ~3). It isn't naturally minute-metered, so each
