@@ -75,21 +75,20 @@ async def record_job_outcome(ok: bool, error_text: str = ""):
     # 1) Proxy / credits problem — most urgent, alert immediately.
     if _looks_like_proxy_error(error_text) and _cooldown_ok("proxy"):
         await send_admin_alert(
-            "⚠️ Proxy error — DataImpulse may be out of credits",
-            "A managed job failed with a proxy-related error. Check your residential "
-            "proxy balance (DataImpulse) — downloads will keep failing until it's topped up.\n\n"
+            "⚠️ Proxy error — may be out of credits",
+            "A managed job failed with a proxy-related error. Check your proxy "
+            "balance — downloads will keep failing until it's topped up.\n\n"
             f"Error:\n{error_text[:1200]}",
         )
         return
 
-    # 2) High failure rate — the YouTube download path may be broken (arms race).
+    # 2) High failure rate — the download path may be broken.
     recent = list(_recent)
     fails = recent.count(False)
     if len(recent) >= _FAIL_WINDOW_MIN and fails >= _FAIL_THRESHOLD and _cooldown_ok("failrate"):
         await send_admin_alert(
             "⚠️ High download failure rate",
-            f"{fails} of the last {len(recent)} managed jobs failed. The YouTube "
-            "download path may be broken (yt-dlp / PO-token change). A backend image "
-            "rebuild usually pulls the yt-dlp fix.\n\n"
+            f"{fails} of the last {len(recent)} managed jobs failed. The download "
+            "path may be broken. Rebuilding the backend image usually pulls a fix.\n\n"
             f"Last error:\n{error_text[:1200]}",
         )

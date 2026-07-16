@@ -479,21 +479,15 @@ def download_youtube_video(url, output_dir="."):
         cookies_path = None
         print("⚠️ YOUTUBE_COOKIES env var not found.")
     
-    # Optional residential proxy for YouTube (avoids datacenter-IP bans on hosted
-    # servers). Set PROXY_URL (e.g. http://user:pass@gate.provider.com:port).
-    # When unset (self-host), downloads go direct as before.
+    # Optional HTTP proxy. Set PROXY_URL to route downloads through it; unset
+    # (self-host) goes direct as before.
     _proxy = os.environ.get("PROXY_URL", "").strip() or None
     if _proxy:
-        print("🌐 Using residential proxy for download.")
+        print("🌐 Using proxy for download.")
 
     # Two download strategies, tried in order so a break in the HD path degrades
-    # gracefully instead of failing the whole job:
-    #  1) HD — yt-dlp default clients + the bgutil PO-token provider
-    #     (BGUTIL_BASE_URL, needs the sidecar + Deno + recent yt-dlp) → 720p/1080p.
-    #  2) Fallback — conservative tv_embed/android clients, no PO provider (~360p),
-    #     which is also the ONLY strategy for self-host (no bgutil configured).
-    # PO-token provider: HTTP mode (external BGUTIL_BASE_URL) or the baked-in
-    # local Node script (BGUTIL_SCRIPT_PATH, set in the image). Either enables HD.
+    # gracefully instead of failing the whole job: an HD attempt first, then a
+    # conservative fallback (also the only strategy for self-host).
     _bgutil_http = os.environ.get("BGUTIL_BASE_URL", "").strip()
     _bgutil_script = os.environ.get("BGUTIL_SCRIPT_PATH", "").strip()
     if _bgutil_http:

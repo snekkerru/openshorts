@@ -46,11 +46,8 @@ services:
       - MANAGED_GEMINI_API_KEY=${MANAGED_GEMINI_API_KEY}
       - MANAGED_UPLOAD_POST_API_KEY=${MANAGED_UPLOAD_POST_API_KEY}
       - OPENSHORTS_LOGO_URL=${OPENSHORTS_LOGO_URL:-https://openshorts.app/logo.png}
-      # Residential proxy for YouTube downloads (avoids datacenter-IP bans).
-      # e.g. http://user:pass@gate.dataimpulse.com:823 — leave empty to go direct.
+      # Optional HTTP proxy for downloads. Leave empty to go direct.
       - PROXY_URL=${PROXY_URL:-}
-      # 720p/1080p: the bgutil PO-token provider is baked into the backend image
-      # (script mode, BGUTIL_SCRIPT_PATH). No sidecar or BGUTIL_BASE_URL needed.
 
 volumes:
   pgdata:

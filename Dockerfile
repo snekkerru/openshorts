@@ -37,11 +37,10 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     git \
     && rm -rf /var/lib/apt/lists/*
 
-# Deno JS runtime — yt-dlp needs it to solve YouTube's nsig challenge for 720p+.
+# Deno JS runtime — required by yt-dlp for some extractor challenges.
 COPY --from=denoland/deno:bin /deno /usr/local/bin/deno
 
-# bgutil PO-token provider, baked in as a local Node script (script mode) — no
-# separate service/sidecar needed. Unlocks 720p/1080p together with Deno.
+# Helper token provider, baked in as a local Node script (no separate service).
 RUN git clone --depth 1 https://github.com/Brainicism/bgutil-ytdlp-pot-provider /opt/bgutil-provider \
     && cd /opt/bgutil-provider/server \
     && npm install --no-audit --no-fund \
@@ -54,8 +53,7 @@ COPY --from=builder /opt/venv /opt/venv
 ENV PATH="/opt/venv/bin:$PATH"
 ENV PYTHONUNBUFFERED=1
 
-# Latest yt-dlp (nightly, YouTube changes constantly) + the bgutil PO-token
-# provider plugin. Together with Deno + the baked-in bgutil script this unlocks 720p.
+# Latest yt-dlp (nightly — it updates frequently) plus its helper plugin.
 RUN pip install --upgrade --pre --no-cache-dir "yt-dlp[default]" bgutil-ytdlp-pot-provider
 
 # Copy application code

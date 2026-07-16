@@ -66,10 +66,9 @@ def probe_file_minutes(path: str) -> float:
 def probe_url_minutes(url: str) -> float:
     """Return the video duration in minutes from yt-dlp metadata (no download).
 
-    Uses the same residential proxy + anti-bot extractor args as the actual
-    download (main.py), so the metadata probe doesn't get IP-blocked on the
-    server before we even reach the download step. Metadata only — negligible
-    bandwidth. Raises ValueError if the duration is unknown (e.g. live streams).
+    Uses the same proxy + extractor settings as the actual download (main.py) so
+    the probe behaves consistently with it. Metadata only — negligible bandwidth.
+    Raises ValueError if the duration is unknown (e.g. live streams).
     """
     import yt_dlp
     # SSRF guard: reject non-http(s) / private / metadata hosts before probing.
