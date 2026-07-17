@@ -29,6 +29,10 @@ export default function ResultCard({ clip, index, jobId, durableUrl, uploadPostK
     const videoRef = React.useRef(null);
     const originalVideoUrl = getApiUrl(clip.video_url); // Never changes — used for Remotion previews
     const [currentVideoUrl, setCurrentVideoUrl] = useState(originalVideoUrl);
+    // Latest file that exists ON THE SERVER (blob: previews don't count).
+    // All server-side operations must chain from this, so burned-in edits
+    // (subtitles, hooks, effects) never get silently dropped.
+    const [serverVideoFile, setServerVideoFile] = useState((clip.video_url || '').split('/').pop());
     const [videoErrored, setVideoErrored] = useState(false);
 
     // If the local video failed and a durable R2 URL is (now) available, use it.
@@ -77,6 +81,11 @@ export default function ResultCard({ clip, index, jobId, durableUrl, uploadPostK
     // Accumulate Remotion layers across operations
     const [activeLayers, setActiveLayers] = useState({ subtitles: null, hook: null, effects: null });
 
+    // True when the current server file already carries burned-in content.
+    // Browser (Remotion) renders compose over the ORIGINAL clip, so using them
+    // here would silently drop those burns — chain via server FFmpeg instead.
+    const hasServerBurns = /(^|_)(subtitled|hook)_/.test(serverVideoFile || '');
+
     // Fetch clip duration from transcript endpoint
     useEffect(() => {
         if (!jobId || index === undefined) return;
@@ -113,7 +122,7 @@ export default function ResultCard({ clip, index, jobId, durableUrl, uploadPostK
             const geminiHeaders = apiKey ? { 'X-Gemini-Key': apiKey } : {};
 
             // Try Remotion effects endpoint first
-            const effectsRes = await apiFetch('/api/effects/generate', {
+            const effectsRes = hasServerBurns ? null : await apiFetch('/api/effects/generate', {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
@@ -122,11 +131,11 @@ export default function ResultCard({ clip, index, jobId, durableUrl, uploadPostK
                 body: JSON.stringify({
                     job_id: jobId,
                     clip_index: index,
-                    input_filename: currentVideoUrl.split('/').pop()
+                    input_filename: serverVideoFile
                 })
             });
 
-            if (effectsRes.ok) {
+            if (effectsRes && effectsRes.ok) {
                 const data = await effectsRes.json();
                 if (data.effects && data.effects.segments) {
                     const newLayers = { ...activeLayers, effects: data.effects };
@@ -154,7 +163,7 @@ export default function ResultCard({ clip, index, jobId, durableUrl, uploadPostK
                 body: JSON.stringify({
                     job_id: jobId,
                     clip_index: index,
-                    input_filename: currentVideoUrl.split('/').pop()
+                    input_filename: serverVideoFile
                 })
             });
 
@@ -171,6 +180,7 @@ export default function ResultCard({ clip, index, jobId, durableUrl, uploadPostK
             const data = await res.json();
             if (data.new_video_url) {
                 setCurrentVideoUrl(getApiUrl(data.new_video_url));
+                setServerVideoFile(data.new_video_url.split('/').pop());
                 if (videoRef.current) {
                     videoRef.current.load();
                 }
@@ -189,8 +199,9 @@ export default function ResultCard({ clip, index, jobId, durableUrl, uploadPostK
         setEditError(null);
         try {
             // Karaoke styles are burned server-side (ASS word-highlight render);
-            // the in-browser Remotion path only handles classic styles.
-            if (options.remotion && options.style !== 'karaoke') {
+            // the in-browser Remotion path only handles classic styles, and only
+            // when the server file has no burned-in content to preserve.
+            if (options.remotion && options.style !== 'karaoke' && !hasServerBurns) {
                 // Accumulate layer and render all layers together
                 const newLayers = { ...activeLayers, subtitles: options.remotion };
                 setActiveLayers(newLayers);
@@ -227,14 +238,32 @@ export default function ResultCard({ clip, index, jobId, durableUrl, uploadPostK
                     effect: options.effect || 'none',
                     base_opacity: options.baseOpacity ?? 1.0,
                     uppercase: options.uppercase || false,
-                    input_filename: currentVideoUrl.split('/').pop()
+                    input_filename: serverVideoFile
                 })
             });
 
             if (!res.ok) throw new Error(await res.text());
             const data = await res.json();
             if (data.new_video_url) {
-                setCurrentVideoUrl(getApiUrl(data.new_video_url));
+                const serverUrl = getApiUrl(data.new_video_url);
+                setServerVideoFile(data.new_video_url.split('/').pop());
+                // Subtitles are burned into the server file now — drop the
+                // browser subtitle layer and re-compose any remaining browser
+                // layers (hook/effects) over the new file so they aren't lost.
+                const remaining = { ...activeLayers, subtitles: null };
+                setActiveLayers(remaining);
+                if (remaining.hook || remaining.effects) {
+                    const blobUrl = await renderInBrowser({
+                        videoUrl: serverUrl,
+                        durationInSeconds: clipDuration,
+                        subtitles: null,
+                        hook: remaining.hook,
+                        effects: remaining.effects,
+                    });
+                    setCurrentVideoUrl(blobUrl);
+                } else {
+                    setCurrentVideoUrl(serverUrl);
+                }
                 if (videoRef.current) videoRef.current.load();
                 setShowSubtitleModal(false);
             }
@@ -250,7 +279,7 @@ export default function ResultCard({ clip, index, jobId, durableUrl, uploadPostK
         setIsHooking(true);
         setEditError(null);
         try {
-            if (hookData.remotion) {
+            if (hookData.remotion && !hasServerBurns) {
                 // Accumulate layer and render all layers together
                 const newLayers = { ...activeLayers, hook: hookData.remotion };
                 setActiveLayers(newLayers);
@@ -282,7 +311,7 @@ export default function ResultCard({ clip, index, jobId, durableUrl, uploadPostK
                     position: payload.position,
                     size: payload.size,
                     duration_seconds: payload.remotion?.displayDurationSec ?? null,
-                    input_filename: currentVideoUrl.split('/').pop()
+                    input_filename: serverVideoFile
                 })
             });
 
@@ -290,6 +319,7 @@ export default function ResultCard({ clip, index, jobId, durableUrl, uploadPostK
             const data = await res.json();
             if (data.new_video_url) {
                 setCurrentVideoUrl(getApiUrl(data.new_video_url));
+                setServerVideoFile(data.new_video_url.split('/').pop());
                 if (videoRef.current) videoRef.current.load();
                 setShowHookModal(false);
             }
@@ -317,7 +347,7 @@ export default function ResultCard({ clip, index, jobId, durableUrl, uploadPostK
                 job_id: jobId,
                 clip_index: index,
                 target_language: options.targetLanguage,
-                input_filename: currentVideoUrl.split('/').pop()
+                input_filename: serverVideoFile
             };
             console.log('[Translate] Request body:', requestBody);
             console.log('[Translate] Sending request to /api/translate');
@@ -349,6 +379,7 @@ export default function ResultCard({ clip, index, jobId, durableUrl, uploadPostK
             console.log('[Translate] Success response:', data);
             if (data.new_video_url) {
                 setCurrentVideoUrl(getApiUrl(data.new_video_url));
+                setServerVideoFile(data.new_video_url.split('/').pop());
                 if (videoRef.current) {
                     videoRef.current.load();
                 }
