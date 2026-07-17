@@ -44,6 +44,22 @@ const POSITION_OPTIONS = [
     { value: 'bottom', label: 'bottom' },
 ];
 
+// Ready-made caption looks burned server-side as karaoke ASS (word highlight):
+// dimmed base text + strong active word, optional glow/pop/box effect.
+const CAPTION_PRESETS = [
+    { id: 'tiktok',  label: 'TikTok',     style: 'karaoke', effect: 'none', highlightColor: '#FE2C55', baseOpacity: 0.75, uppercase: false, fontName: 'Verdana', borderWidth: 2 },
+    { id: 'reels',   label: 'Reels',      style: 'karaoke', effect: 'none', highlightColor: '#E1306C', baseOpacity: 0.7,  uppercase: false, fontName: 'Verdana', borderWidth: 2 },
+    { id: 'shorts',  label: 'Shorts Pop', style: 'karaoke', effect: 'pop',  highlightColor: '#FF0000', baseOpacity: 0.7,  uppercase: false, fontName: 'Verdana', borderWidth: 2 },
+    { id: 'gold',    label: 'Gold Glow',  style: 'karaoke', effect: 'glow', highlightColor: '#FFD700', baseOpacity: 0.6,  uppercase: false, fontName: 'Verdana', borderWidth: 2 },
+    { id: 'neon',    label: 'Neon',       style: 'karaoke', effect: 'glow', highlightColor: '#00FF88', baseOpacity: 0.55, uppercase: false, fontName: 'Verdana', borderWidth: 2 },
+    { id: 'cyber',   label: 'Cyber',      style: 'karaoke', effect: 'glow', highlightColor: '#00FFFF', baseOpacity: 0.5,  uppercase: false, fontName: 'Verdana', borderWidth: 2 },
+    { id: 'karaoke', label: 'Karaoke',    style: 'karaoke', effect: 'none', highlightColor: '#FF6B6B', baseOpacity: 0.6,  uppercase: false, fontName: 'Verdana', borderWidth: 2 },
+    { id: 'minimal', label: 'Minimal',    style: 'karaoke', effect: 'none', highlightColor: '#FFFFFF', baseOpacity: 0.65, uppercase: false, fontName: 'Verdana', borderWidth: 1 },
+    { id: 'beast',   label: 'Beast',      style: 'karaoke', effect: 'pop',  highlightColor: '#FFD700', baseOpacity: 1.0,  uppercase: true,  fontName: 'Impact',  borderWidth: 3 },
+    { id: 'boxed',   label: 'Boxed',      style: 'karaoke', effect: 'box',  highlightColor: '#7C3AED', baseOpacity: 0.85, uppercase: false, fontName: 'Verdana', borderWidth: 2 },
+    { id: 'classic', label: 'Classic',    style: 'classic', effect: 'none', highlightColor: '#FFD700', baseOpacity: 1.0,  uppercase: false, fontName: 'Verdana', borderWidth: 2 },
+];
+
 const swatchClass = (selected) =>
     `w-6 h-6 rounded-full transition-all ${selected
         ? 'ring-2 ring-[color:var(--color-accent)] ring-offset-2 ring-offset-[color:var(--color-paper-2)]'
@@ -61,6 +77,28 @@ export default function SubtitleModal({ isOpen, onClose, onGenerate, isProcessin
     const [bgOpacity, setBgOpacity] = useState(0.0);
     const [animation, setAnimation] = useState('pop');
     const [showTextEditor, setShowTextEditor] = useState(false);
+
+    // Karaoke (server-side ASS burn) state
+    const [style, setStyle] = useState('classic'); // classic | karaoke
+    const [effect, setEffect] = useState('none'); // none | glow | pop | box
+    const [baseOpacity, setBaseOpacity] = useState(1.0);
+    const [uppercase, setUppercase] = useState(false);
+    const [activePreset, setActivePreset] = useState(null);
+
+    const applyPreset = (p) => {
+        setActivePreset(p.id);
+        setStyle(p.style);
+        setEffect(p.effect);
+        setHighlightColor(p.highlightColor);
+        setBaseOpacity(p.baseOpacity);
+        setUppercase(p.uppercase);
+        setFontName(p.fontName);
+        setBorderWidth(p.borderWidth);
+        setFontColor('#FFFFFF');
+        setBgOpacity(0);
+        // Keep the Remotion preview roughly in sync with the burned look
+        setAnimation(p.style === 'karaoke' ? (p.effect === 'pop' ? 'pop' : p.effect === 'glow' ? 'word-highlight' : 'karaoke') : 'none');
+    };
 
     // Remotion preview state
     const [captions, setCaptions] = useState([]);
@@ -198,6 +236,52 @@ export default function SubtitleModal({ isOpen, onClose, onGenerate, isProcessin
                 {/* Right: Controls */}
                 <div className="w-full md:w-80 flex flex-col">
                     <div className="space-y-5 flex-1 overflow-y-auto custom-scrollbar pr-1">
+                        {/* Caption presets (server-side karaoke burn) */}
+                        <div>
+                            <p className="eyebrow mb-2">Preset</p>
+                            <div className="grid grid-cols-3 gap-1.5">
+                                {CAPTION_PRESETS.map((p) => (
+                                    <button
+                                        key={p.id}
+                                        onClick={() => applyPreset(p)}
+                                        className={`px-2 py-1.5 rounded-input border text-xs transition-colors flex items-center gap-1.5 justify-center
+                                            ${activePreset === p.id
+                                                ? 'border-[color:var(--color-accent)] text-ink'
+                                                : 'border-rule2 text-muted hover:border-[color:var(--color-accent)]'}`}
+                                        title={p.label}
+                                    >
+                                        <span className="w-2 h-2 rounded-full shrink-0" style={{ backgroundColor: p.highlightColor }} />
+                                        {p.label}
+                                    </button>
+                                ))}
+                            </div>
+                            {style === 'karaoke' && (
+                                <div className="mt-3 space-y-3 animate-fade">
+                                    <div className="flex items-center justify-between">
+                                        <span className="readout">UPPERCASE</span>
+                                        <label className="relative inline-flex items-center cursor-pointer">
+                                            <input type="checkbox" checked={uppercase} onChange={(e) => setUppercase(e.target.checked)} className="sr-only peer" />
+                                            <div className="w-8 h-4 rounded-full bg-paper3 peer-checked:bg-brass transition-colors after:content-[''] after:absolute after:top-0 after:left-0 after:h-4 after:w-4 after:rounded-full after:bg-ink after:transition-all peer-checked:after:translate-x-full"></div>
+                                        </label>
+                                    </div>
+                                    <div>
+                                        <div className="flex justify-between mb-1">
+                                            <span className="readout">Dim inactive words</span>
+                                            <span className="readout">{Math.round(baseOpacity * 100)}%</span>
+                                        </div>
+                                        <input
+                                            type="range"
+                                            min="30"
+                                            max="100"
+                                            value={Math.round(baseOpacity * 100)}
+                                            onChange={(e) => setBaseOpacity(parseInt(e.target.value) / 100)}
+                                            className="w-full accent-[var(--color-accent)]"
+                                        />
+                                    </div>
+                                </div>
+                            )}
+                        </div>
+
                         {/* Position Selector */}
                         <div>
                             <p className="eyebrow mb-2">Position</p>
@@ -362,6 +446,8 @@ export default function SubtitleModal({ isOpen, onClose, onGenerate, isProcessin
                         <button
                             onClick={() => onGenerate({
                                 position, fontSize, fontName, fontColor, borderColor, borderWidth, bgColor, bgOpacity,
+                                // Karaoke burn (server-side ASS render)
+                                style, effect, baseOpacity, uppercase, highlightColor,
                                 // Remotion data
                                 remotion: useRemotionPreview ? subtitleConfig : null,
                             })}

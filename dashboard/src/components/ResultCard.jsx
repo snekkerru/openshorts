@@ -185,7 +185,9 @@ export default function ResultCard({ clip, index, jobId, durableUrl, uploadPostK
         setIsSubtitling(true);
         setEditError(null);
         try {
-            if (options.remotion) {
+            // Karaoke styles are burned server-side (ASS word-highlight render);
+            // the in-browser Remotion path only handles classic styles.
+            if (options.remotion && options.style !== 'karaoke') {
                 // Accumulate layer and render all layers together
                 const newLayers = { ...activeLayers, subtitles: options.remotion };
                 setActiveLayers(newLayers);
@@ -217,6 +219,11 @@ export default function ResultCard({ clip, index, jobId, durableUrl, uploadPostK
                     border_width: options.borderWidth,
                     bg_color: options.bgColor,
                     bg_opacity: options.bgOpacity,
+                    style: options.style || 'classic',
+                    highlight_color: options.highlightColor || '#FFD700',
+                    effect: options.effect || 'none',
+                    base_opacity: options.baseOpacity ?? 1.0,
+                    uppercase: options.uppercase || false,
                     input_filename: currentVideoUrl.split('/').pop()
                 })
             });

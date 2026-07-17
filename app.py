@@ -749,7 +749,7 @@ async def get_status(job_id: str, request: Request):
     }
 
 from editor import VideoEditor
-from subtitles import generate_srt, burn_subtitles, generate_srt_from_video
+from subtitles import generate_srt, generate_ass, burn_subtitles, generate_srt_from_video
 from hooks import add_hook_to_video
 from translate import translate_video, get_supported_languages
 from thumbnail import analyze_video_for_titles, refine_titles, generate_thumbnail, generate_youtube_description
@@ -848,7 +848,11 @@ async def edit_clip(
                     print(f"⚠️ Could not load transcript for editing context: {e}")
 
                 # 3. Get Plan (Filter String)
-                filter_data = editor.get_ffmpeg_filter(vid_file, duration, fps=fps, width=width, height=height, transcript=transcript)
+                # Zooms would crop burned-in captions/hooks off screen, so tell
+                # the editor when the source already carries them. `filename` is
+                # the original clip name (safe_input_path is an ASCII temp copy).
+                has_captions = ("subtitled_" in filename) or ("hook_" in filename)
+                filter_data = editor.get_ffmpeg_filter(vid_file, duration, fps=fps, width=width, height=height, transcript=transcript, has_captions=has_captions)
                 
                 # 4. Apply
                 # Use safe output name first
@@ -908,6 +912,11 @@ class SubtitleRequest(BaseModel):
     border_width: int = 2
     bg_color: str = "#000000"
     bg_opacity: float = 0.0
+    style: str = "classic"  # classic (uniform color) or karaoke (word highlight)
+    highlight_color: str = "#FFD700"
+    effect: str = "none"  # none | glow | pop | box (karaoke only)
+    base_opacity: float = 1.0  # opacity of non-active words (dimmed modern look)
+    uppercase: bool = False
     input_filename: Optional[str] = None
 
 
@@ -1156,20 +1165,39 @@ async def add_subtitles(req: SubtitleRequest, request: Request):
         if not filename:
              base_name = os.path.basename(json_files[0]).replace('_metadata.json', '')
              filename = f"{base_name}_clip_{req.clip_index+1}.mp4"
-         
+
+    # Re-subtitling must replace previous subtitles instead of burning over
+    # them: walk subtitled_<ts>_ prefixes back to the pre-subtitle file.
+    while True:
+        m = re.match(r'^subtitled_\d+_(.+)$', filename)
+        if not m or not os.path.exists(os.path.join(output_dir, m.group(1))):
+            break
+        filename = m.group(1)
+
     input_path = os.path.join(output_dir, filename)
     if not os.path.exists(input_path):
         # Try looking for edited version if url implied it?
         # Just fail if not found.
         raise HTTPException(status_code=404, detail=f"Video file not found: {input_path}")
-        
+
     # Define outputs
-    srt_filename = f"subs_{req.clip_index}_{int(time.time())}.srt"
+    generation_id = int(time.time())
+    is_karaoke = req.style == "karaoke"
+    srt_filename = f"subs_{req.clip_index}_{generation_id}.{'ass' if is_karaoke else 'srt'}"
     srt_path = os.path.join(output_dir, srt_filename)
-    
+
+    # Style options shared by the karaoke ASS generator paths.
+    karaoke_opts = dict(
+        alignment=req.position, fontsize=req.font_size, font_name=req.font_name,
+        font_color=req.font_color, border_color=req.border_color,
+        border_width=req.border_width, highlight_color=req.highlight_color,
+        bg_color=req.bg_color, bg_opacity=req.bg_opacity,
+        effect=req.effect, base_opacity=req.base_opacity, uppercase=req.uppercase,
+    )
+
     # Output video
     # We create a new file "subtitled_..."
-    output_filename = f"subtitled_{filename}"
+    output_filename = f"subtitled_{generation_id}_{filename}"
     output_path = os.path.join(output_dir, output_filename)
 
     # Meter the FFmpeg re-encode (and any dubbed-video re-transcription) so it
@@ -1186,10 +1214,14 @@ async def add_subtitles(req: SubtitleRequest, request: Request):
         if is_dubbed:
             print(f"🎙️ Dubbed video detected, transcribing audio for subtitles...")
             def run_transcribe_srt():
+                if is_karaoke:
+                    return generate_srt_from_video(input_path, srt_path, style="karaoke", **karaoke_opts)
                 return generate_srt_from_video(input_path, srt_path)
 
             loop = asyncio.get_event_loop()
             success = await loop.run_in_executor(None, run_transcribe_srt)
+        elif is_karaoke:
+            success = generate_ass(transcript, clip_data['start'], clip_data['end'], srt_path, **karaoke_opts)
         else:
             success = generate_srt(transcript, clip_data['start'], clip_data['end'], srt_path)
 
