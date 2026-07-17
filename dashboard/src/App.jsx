@@ -293,7 +293,10 @@ function App() {
       if (session.jobId && session.status && session.status !== 'idle') {
         setJobId(session.jobId);
         setResults(session.results || null);
+        // Restore the source preview. Older sessions (or uploads) saved no
+        // media, so fall back to the backend-served source for this job.
         if (session.processingMedia) setProcessingMedia(session.processingMedia);
+        else setProcessingMedia({ type: 'server', payload: `/api/source/${session.jobId}` });
         if (session.activeTab) setActiveTab(session.activeTab);
         // If was processing, resume polling; if complete/error, just show results
         setStatus(session.status === 'processing' ? 'processing' : session.status);
