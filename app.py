@@ -541,13 +541,17 @@ def _scrub_secrets(line: str) -> str:
     return _CREDENTIAL_URL_RE.sub(r'\1***:***@', line)
 
 
-# Cloud users don't need (and shouldn't see) the ingest plumbing: proxy usage,
-# the YouTube downloader internals, cookies, etc. These are dropped from the
-# client view even when the line is emoji-prefixed. Never applied under
-# DEBUG_LOGS (local dev sees everything).
+# Cloud users don't need (and shouldn't see) implementation details: the ingest
+# plumbing (proxy / downloader / cookies) OR which AI model powers it, token
+# usage and cost. These are dropped from the client view even when the line is
+# emoji-prefixed. Never applied under DEBUG_LOGS (local dev sees everything).
 _SENSITIVE_LOG_RE = re.compile(
+    # Ingest plumbing
     r'proxy|yt[-_ ]?dlp|youtube-?dl|cookie|residential|po[_ ]?token'
-    r'|player_client|extractor|\bdownload|descarg',
+    r'|player_client|extractor|\bdownload|descarg'
+    # AI model / provider / cost / pipeline internals
+    r'|gemini|openai|anthropic|\bflash\b|\bmodel\b|token|thinking'
+    r'|\bcost\b|\$\s*[0-9]|scoring window|shortlist',
     re.IGNORECASE,
 )
 
