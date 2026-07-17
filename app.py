@@ -232,7 +232,9 @@ async def _assert_job_owner(request, record):
     if owner is None:
         return
     user = await _user_from_request(request)
-    if user is None or user.id != owner:
+    # Compare as strings: live jobs store a uuid.UUID, but jobs recovered from
+    # the .owner sidecar store its string form — UUID != str is always True.
+    if user is None or str(user.id) != str(owner):
         raise HTTPException(status_code=404, detail="Not found")
 
 # Application State
