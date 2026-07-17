@@ -27,8 +27,17 @@ export default function ResultCard({ clip, index, jobId, durableUrl, uploadPostK
     const [showModal, setShowModal] = useState(false);
     const [showSubtitleModal, setShowSubtitleModal] = useState(false);
     const videoRef = React.useRef(null);
-    const originalVideoUrl = getApiUrl(clip.video_url); // Never changes — used for Remotion previews
-    const [currentVideoUrl, setCurrentVideoUrl] = useState(originalVideoUrl);
+    // Pristine base clip (no burned subtitles/hook), stable regardless of how
+    // clip.video_url mutates after server edits. Used as the compositing base
+    // for the Remotion preview so it never stacks subtitles over an already-
+    // subtitled file (double-subtitle bug).
+    const stripBurns = (filename) => {
+        let f = filename || '', prev;
+        do { prev = f; f = f.replace(/^subtitled_\d+_/, '').replace(/^hook_/, ''); } while (f !== prev);
+        return f;
+    };
+    const originalVideoUrl = getApiUrl((clip.video_url || '').replace(/[^/]+$/, stripBurns((clip.video_url || '').split('/').pop())));
+    const [currentVideoUrl, setCurrentVideoUrl] = useState(getApiUrl(clip.video_url));
     // Latest file that exists ON THE SERVER (blob: previews don't count).
     // All server-side operations must chain from this, so burned-in edits
     // (subtitles, hooks, effects) never get silently dropped.
@@ -43,6 +52,20 @@ export default function ResultCard({ clip, index, jobId, durableUrl, uploadPostK
             setVideoErrored(false);
         }
     }, [videoErrored, durableUrl, currentVideoUrl]);
+
+    // When an external refresh changes this clip's server file (e.g. bulk
+    // subtitles applied from another card), adopt it so the card shows the
+    // freshly subtitled video instead of a stale one.
+    useEffect(() => {
+        const serverUrl = getApiUrl(clip.video_url);
+        const serverName = (clip.video_url || '').split('/').pop();
+        if (serverName && serverName !== serverVideoFile) {
+            setServerVideoFile(serverName);
+            setCurrentVideoUrl(serverUrl);
+            if (videoRef.current) videoRef.current.load();
+        }
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [clip.video_url]);
 
     const [platforms, setPlatforms] = useState({
         tiktok: true,
