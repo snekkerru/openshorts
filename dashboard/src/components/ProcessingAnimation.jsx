@@ -1,5 +1,6 @@
 import React, { useEffect, useState, useRef } from 'react';
 import { Scan, Scissors, Activity, Radio, CheckCircle } from 'lucide-react';
+import { getApiUrl } from '../config';
 
 const ProcessingAnimation = ({ media, isComplete, syncedTime, isSyncedPlaying, syncTrigger }) => {
   const [videoSrc, setVideoSrc] = useState(null);
@@ -12,8 +13,13 @@ const ProcessingAnimation = ({ media, isComplete, syncedTime, isSyncedPlaying, s
 
     if (media.type === 'file') {
       const url = URL.createObjectURL(media.payload);
+      setIsYouTube(false);
       setVideoSrc(url);
       return () => URL.revokeObjectURL(url);
+    } else if (media.type === 'server') {
+      // Uploaded source served from the backend (survives a page reload).
+      setIsYouTube(false);
+      setVideoSrc(getApiUrl(media.payload));
     } else if (media.type === 'url') {
       setIsYouTube(true);
       const videoId = getYouTubeId(media.payload);

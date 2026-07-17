@@ -312,11 +312,17 @@ function App() {
       return;
     }
     try {
+      // URL (YouTube) media serializes as-is. Uploaded 'file' media is a blob
+      // that can't be persisted, so point the recovered preview at the source
+      // served by the backend instead of dropping it.
+      let persistMedia = null;
+      if (processingMedia?.type === 'url') persistMedia = processingMedia;
+      else if (processingMedia && jobId) persistMedia = { type: 'server', payload: `/api/source/${jobId}` };
       const sessionData = {
         jobId,
         status,
         results,
-        processingMedia: processingMedia?.type === 'url' ? processingMedia : null,
+        processingMedia: persistMedia,
         activeTab,
         timestamp: Date.now()
       };

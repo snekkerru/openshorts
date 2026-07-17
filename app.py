@@ -818,6 +818,23 @@ async def get_status(job_id: str, request: Request):
     }
 
 
+@app.get("/api/source/{job_id}")
+async def get_source_video(job_id: str):
+    """Stream a job's original source video for the live-analysis preview.
+
+    Uploaded sources are blob URLs in the browser and don't survive a reload,
+    so the recovered session points the preview here instead. Unauthenticated
+    like the /videos mount — the UUID job_id is the capability.
+    """
+    matches = [
+        f for f in glob.glob(os.path.join(UPLOAD_DIR, f"{job_id}_*"))
+        if not os.path.basename(f).startswith("thumb_")
+    ]
+    if not matches:
+        raise HTTPException(status_code=404, detail="Source not found")
+    return FileResponse(matches[0], media_type="video/mp4")
+
+
 @app.get("/api/jobs/{job_id}/download-all")
 async def download_all_clips(job_id: str, request: Request):
     """Bundle the current version of every clip of a job into one ZIP."""
