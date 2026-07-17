@@ -1342,6 +1342,7 @@ class HookRequest(BaseModel):
     position: Optional[str] = "top" # top, center, bottom
     size: Optional[str] = "M" # S, M, L
     duration_seconds: Optional[float] = None  # None = hook visible for the whole clip
+    style: Optional[str] = "classic"  # classic/dark/yellow/red/outline/outline_yellow
 
 @app.post("/api/hook")
 async def add_hook(req: HookRequest, request: Request):
@@ -1395,7 +1396,7 @@ async def add_hook(req: HookRequest, request: Request):
     try:
         # Run in thread pool
         def run_hook():
-             add_hook_to_video(input_path, req.text, output_path, position=req.position, font_scale=font_scale, duration=req.duration_seconds)
+             add_hook_to_video(input_path, req.text, output_path, position=req.position, font_scale=font_scale, duration=req.duration_seconds, style=req.style)
 
         loop = asyncio.get_event_loop()
         await loop.run_in_executor(None, run_hook)

@@ -34,12 +34,21 @@ export type HookPosition = "top" | "center" | "bottom";
 export type HookSize = "S" | "M" | "L";
 export type HookEntrance = "spring" | "fade" | "slide-up" | "none";
 
+export type HookStyle =
+  | "classic"
+  | "dark"
+  | "yellow"
+  | "red"
+  | "outline"
+  | "outline_yellow";
+
 export interface HookConfig {
   text: string;
   position: HookPosition;
   size: HookSize;
   entranceAnimation: HookEntrance;
   displayDurationSec: number;
+  style?: HookStyle;
 }
 
 // --- Effects config ---

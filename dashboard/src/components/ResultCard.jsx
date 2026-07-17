@@ -310,6 +310,7 @@ export default function ResultCard({ clip, index, jobId, durableUrl, uploadPostK
                     text: payload.text,
                     position: payload.position,
                     size: payload.size,
+                    style: payload.style || 'classic',
                     duration_seconds: payload.remotion?.displayDurationSec ?? null,
                     input_filename: serverVideoFile
                 })

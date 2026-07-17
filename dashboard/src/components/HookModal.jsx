@@ -11,6 +11,16 @@ const ENTRANCE_OPTIONS = [
     { value: 'none', label: 'None' },
 ];
 
+// Must mirror hooks.py HOOK_STYLES.
+const HOOK_STYLES = [
+    { value: 'classic', label: 'Classic', box: 'rgba(255,255,255,0.94)', text: '#000' },
+    { value: 'dark', label: 'Dark', box: 'rgba(18,18,20,0.92)', text: '#fff' },
+    { value: 'yellow', label: 'Yellow', box: 'rgba(255,214,0,0.96)', text: '#000' },
+    { value: 'red', label: 'Red', box: 'rgba(220,38,38,0.96)', text: '#fff' },
+    { value: 'outline', label: 'Outline', box: 'transparent', text: '#fff', outline: true },
+    { value: 'outline_yellow', label: 'Outline+', box: 'transparent', text: '#FFD600', outline: true },
+];
+
 const POSITION_OPTIONS = [
     { value: 'top', label: 'top' },
     { value: 'center', label: 'center' },
@@ -27,6 +37,7 @@ export default function HookModal({ isOpen, onClose, onGenerate, isProcessing, v
     const [text, setText] = useState(initialText || 'POV: You are using the viral hook feature');
     const [position, setPosition] = useState('top');
     const [size, setSize] = useState('M');
+    const [style, setStyle] = useState('classic');
     const [entranceAnimation, setEntranceAnimation] = useState('spring');
     const [displayDuration, setDisplayDuration] = useState(5);
 
@@ -37,6 +48,7 @@ export default function HookModal({ isOpen, onClose, onGenerate, isProcessing, v
         text: text || 'Enter your text...',
         position,
         size,
+        style,
         entranceAnimation,
         displayDurationSec: displayDuration,
     };
@@ -112,6 +124,32 @@ export default function HookModal({ isOpen, onClose, onGenerate, isProcessing, v
                             />
                         </div>
 
+                        {/* Style (new) */}
+                        <div>
+                            <p className="eyebrow mb-2">Style</p>
+                            <div className="grid grid-cols-3 gap-1.5">
+                                {HOOK_STYLES.map((s) => (
+                                    <button
+                                        key={s.value}
+                                        onClick={() => setStyle(s.value)}
+                                        className={`px-1 py-2 rounded-input border text-xs transition-colors
+                                            ${style === s.value ? 'border-[color:var(--color-accent)]' : 'border-rule2 hover:border-[color:var(--color-accent)]'}`}
+                                        title={s.label}
+                                    >
+                                        <span
+                                            className="block rounded px-1 py-1 font-bold"
+                                            style={{
+                                                backgroundColor: s.box,
+                                                color: s.text,
+                                                textShadow: s.outline ? '-1px -1px 0 #000, 1px -1px 0 #000, -1px 1px 0 #000, 1px 1px 0 #000' : 'none',
+                                            }}
+                                        >Aa</span>
+                                        <span className="block mt-1 text-muted">{s.label}</span>
+                                    </button>
+                                ))}
+                            </div>
+                        </div>
+
                         {/* Position Control */}
                         <div>
                             <p className="eyebrow mb-2">Position</p>
@@ -177,7 +215,7 @@ export default function HookModal({ isOpen, onClose, onGenerate, isProcessing, v
                         </button>
                         <button
                             onClick={() => onGenerate({
-                                text, position, size,
+                                text, position, size, style,
                                 // Remotion data
                                 remotion: hookConfig,
                             })}

@@ -71,9 +71,12 @@ def _measure_width(draw, text, font, emoji_font):
     return width
 
 
-def _draw_mixed(draw, xy, text, font, emoji_font, fill):
-    """Draw a line, rendering emoji runs with the emoji font (in color if supported)."""
+def _draw_mixed(draw, xy, text, font, emoji_font, fill, outline=None):
+    """Draw a line, rendering emoji runs with the emoji font (in color if
+    supported). outline: optional (color, px) stroke drawn under the text."""
     x, y = xy
+    stroke_w = outline[1] if outline else 0
+    stroke_fill = outline[0] if outline else None
     for is_emoji, chunk in _split_emoji_runs(text):
         if is_emoji and emoji_font:
             try:
@@ -82,7 +85,11 @@ def _draw_mixed(draw, xy, text, font, emoji_font, fill):
                 draw.text((x, y), chunk, font=emoji_font, fill=fill)
             x += draw.textlength(chunk, font=emoji_font)
         else:
-            draw.text((x, y), chunk, font=font, fill=fill)
+            if stroke_w:
+                draw.text((x, y), chunk, font=font, fill=fill,
+                          stroke_width=stroke_w, stroke_fill=stroke_fill)
+            else:
+                draw.text((x, y), chunk, font=font, fill=fill)
             x += draw.textlength(chunk, font=font)
 
 
@@ -118,12 +125,38 @@ def download_font_if_needed():
         except Exception as e:
             print(f"❌ Failed to download font: {e}")
 
-def create_hook_image(text, target_width, output_image_path="hook_overlay.png", font_scale=1.0):
+# Hook visual styles. Each maps to box fill (RGBA, alpha 0 = no box), text
+# color, and an optional text outline (color, px) for box-less looks.
+HOOK_STYLES = {
+    # White card, black serif text (original look).
+    "classic": {"box": (255, 255, 255, 240), "text": (0, 0, 0), "outline": None, "shadow": True},
+    # Dark card, white text.
+    "dark":    {"box": (18, 18, 20, 235),    "text": (255, 255, 255), "outline": None, "shadow": True},
+    # Bright yellow card, black text (high-contrast TikTok look).
+    "yellow":  {"box": (255, 214, 0, 245),   "text": (0, 0, 0), "outline": None, "shadow": True},
+    # Red "breaking" card, white text.
+    "red":     {"box": (220, 38, 38, 245),   "text": (255, 255, 255), "outline": None, "shadow": True},
+    # No box: white text with a thick black outline (caption/MrBeast style).
+    "outline": {"box": (0, 0, 0, 0),         "text": (255, 255, 255), "outline": ((0, 0, 0), 8), "shadow": False},
+    # No box: yellow text with black outline.
+    "outline_yellow": {"box": (0, 0, 0, 0),  "text": (255, 214, 0),   "outline": ((0, 0, 0), 8), "shadow": False},
+}
+
+
+def create_hook_image(text, target_width, output_image_path="hook_overlay.png", font_scale=1.0, style="classic"):
     """
-    Generates a white box with black serif text using pixel-based wrapping.
+    Generates a hook overlay image using pixel-based wrapping.
     target_width: The max width the box should occupy (e.g. 85% of video)
+    style: one of HOOK_STYLES (classic/dark/yellow/red/outline/outline_yellow)
     """
     download_font_if_needed()
+
+    look = HOOK_STYLES.get(style, HOOK_STYLES["classic"])
+    box_fill = look["box"]
+    text_fill = look["text"]
+    outline = look["outline"]
+    has_box = box_fill[3] > 0
+    draw_shadow = look["shadow"]
     
     # Configuration
     padding_x = 30 # Balanced padding
@@ -231,34 +264,34 @@ def create_hook_image(text, target_width, output_image_path="hook_overlay.png", 
     
     img = Image.new('RGBA', (canvas_w, canvas_h), (0, 0, 0, 0))
     draw = ImageDraw.Draw(img)
-    
-    # 2. Draw Shadow
-    shadow_box = [
-        (20 + shadow_offset[0], 20 + shadow_offset[1]),
-        (20 + box_width + shadow_offset[0], 20 + box_height + shadow_offset[1])
-    ]
-    draw.rounded_rectangle(shadow_box, radius=cornerradius, fill=(0, 0, 0, 100))
-    
-    # 3. Blur Shadow
-    img = img.filter(ImageFilter.GaussianBlur(5))
-    
-    # 4. Draw White Box (sharper, on top of blurred shadow)
+
+    # 2. Draw Shadow (only for boxed styles)
+    if draw_shadow and has_box:
+        shadow_box = [
+            (20 + shadow_offset[0], 20 + shadow_offset[1]),
+            (20 + box_width + shadow_offset[0], 20 + box_height + shadow_offset[1])
+        ]
+        draw.rounded_rectangle(shadow_box, radius=cornerradius, fill=(0, 0, 0, 100))
+        # 3. Blur Shadow
+        img = img.filter(ImageFilter.GaussianBlur(5))
+
+    # 4. Draw Box (sharper, on top of blurred shadow)
     draw_final = ImageDraw.Draw(img)
-    
-    main_box = [
-        (20, 20),
-        (20 + box_width, 20 + box_height)
-    ]
-    # Semi-transparent white (240/255 alpha ~ 94% opacity)
-    draw_final.rounded_rectangle(main_box, radius=cornerradius, fill=(255, 255, 255, 240))
-    
+
+    if has_box:
+        main_box = [
+            (20, 20),
+            (20 + box_width, 20 + box_height)
+        ]
+        draw_final.rounded_rectangle(main_box, radius=cornerradius, fill=box_fill)
+
     # 5. Draw Text
     current_y = 20 + padding_y - 2 # Minor visual adjustment
     for i, line in enumerate(lines):
         if not line:
-            current_y += font_size + line_spacing 
+            current_y += font_size + line_spacing
             continue
-            
+
         line_w = _measure_width(draw_final, line, font, emoji_font)
         bbox = draw_final.textbbox((0, 0), line, font=font)
         line_h = text_heights[i] if i < len(text_heights) else bbox[3] - bbox[1]
@@ -266,19 +299,21 @@ def create_hook_image(text, target_width, output_image_path="hook_overlay.png", 
         # Center X
         x = 20 + int(box_width - line_w) // 2
 
-        # Draw Black Text (emoji runs use the emoji font)
-        _draw_mixed(draw_final, (x, current_y), line, font, emoji_font, fill="black")
+        # Draw text in the style's color (emoji runs use the emoji font)
+        _draw_mixed(draw_final, (x, current_y), line, font, emoji_font,
+                    fill=text_fill, outline=outline)
 
         current_y += line_h + line_spacing
         
     img.save(output_image_path)
     return output_image_path, canvas_w, canvas_h
 
-def add_hook_to_video(video_path, text, output_path, position="top", font_scale=1.0, duration=None):
+def add_hook_to_video(video_path, text, output_path, position="top", font_scale=1.0, duration=None, style="classic"):
     """
     Overlays text hook onto video.
     position: 'top', 'center', 'bottom'
     font_scale: float multiplier (1.0 = default)
+    style: hook look (see HOOK_STYLES)
     """
     if not os.path.exists(video_path):
         raise FileNotFoundError(f"Video {video_path} not found")
@@ -304,7 +339,7 @@ def add_hook_to_video(video_path, text, output_path, position="top", font_scale=
     hook_filename = f"temp_hook_{uuid.uuid4().hex[:8]}_{os.path.basename(video_path)}.png"
     
     try:
-        img_path, box_w, box_h = create_hook_image(text, target_box_width, hook_filename, font_scale=font_scale)
+        img_path, box_w, box_h = create_hook_image(text, target_box_width, hook_filename, font_scale=font_scale, style=style)
         
         # 3. Calculate Overlay Position
         overlay_x = (video_width - box_w) // 2
