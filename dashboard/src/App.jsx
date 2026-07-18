@@ -1367,6 +1367,8 @@ function App() {
                           geminiApiKey={apiKey}
                           elevenLabsKey={elevenLabsKey}
                           isManaged={isManaged}
+                          connectedPlatforms={(userProfiles.find((p) => p.username === uploadUserId) || userProfiles[0])?.connected ?? null}
+                          onConnectSocials={isManaged ? handleConnectSocials : null}
                           onPlay={(time) => handleClipPlay(time)}
                           onPause={handleClipPause}
                           onBulkSubtitle={handleBulkSubtitles}

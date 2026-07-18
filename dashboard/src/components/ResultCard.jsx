@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Download, Share2, Instagram, Youtube, Video, AlertCircle, Loader2, Copy, Check, Wand2, Type, Calendar, Languages, FileText } from 'lucide-react';
+import { Download, Share2, Instagram, Youtube, Video, AlertCircle, Loader2, Copy, Check, Wand2, Type, Calendar, Languages, FileText, Link2 } from 'lucide-react';
 import { getApiUrl } from '../config';
 import { apiFetch } from '../lib/api';
 import SubtitleModal from './SubtitleModal';
@@ -23,7 +23,7 @@ function formatDuration(clip) {
     return `${String(Math.floor(secs / 60)).padStart(2, '0')}:${String(secs % 60).padStart(2, '0')}`;
 }
 
-export default function ResultCard({ clip, index, jobId, durableUrl, uploadPostKey, uploadUserId, geminiApiKey, elevenLabsKey, isManaged, onPlay, onPause, onBulkSubtitle, clipCount = 1, bulkProgress, initialState = null, onStateChange }) {
+export default function ResultCard({ clip, index, jobId, durableUrl, uploadPostKey, uploadUserId, geminiApiKey, elevenLabsKey, isManaged, onPlay, onPause, onBulkSubtitle, clipCount = 1, bulkProgress, initialState = null, onStateChange, connectedPlatforms = null, onConnectSocials }) {
     const [showModal, setShowModal] = useState(false);
     const [showDescModal, setShowDescModal] = useState(false);
     const [showSubtitleModal, setShowSubtitleModal] = useState(false);
@@ -134,6 +134,20 @@ export default function ResultCard({ clip, index, jobId, durableUrl, uploadPostK
             .catch(() => {});
     }, [jobId, index]);
 
+    // Which platforms the selected profile actually has linked. `null` means
+    // unknown (profile list not loaded) — in that case nothing is gated.
+    const knownConnections = Array.isArray(connectedPlatforms);
+    const noAccountsConnected = knownConnections && connectedPlatforms.length === 0;
+    const platformOptions = knownConnections
+        ? PLATFORM_OPTIONS.map((o) => (connectedPlatforms.includes(o.value) ? o : { ...o, disabled: true, hint: 'not connected' }))
+        : PLATFORM_OPTIONS;
+
+    const handleConnectAccounts = () => {
+        setShowModal(false);
+        if (onConnectSocials) onConnectSocials();
+        else window.open('https://app.upload-post.com', '_blank', 'noopener');
+    };
+
     // Initialize/Reset form when modal opens
     useEffect(() => {
         if (showModal) {
@@ -142,6 +156,14 @@ export default function ResultCard({ clip, index, jobId, durableUrl, uploadPostK
             setIsScheduling(false);
             setScheduleDate("");
             setPostResult(null);
+            // Only preselect platforms the profile can actually publish to.
+            if (knownConnections) {
+                setPlatforms({
+                    tiktok: connectedPlatforms.includes('tiktok'),
+                    instagram: connectedPlatforms.includes('instagram'),
+                    youtube: connectedPlatforms.includes('youtube'),
+                });
+            }
         }
     }, [showModal, clip]);
 
@@ -442,6 +464,11 @@ export default function ResultCard({ clip, index, jobId, durableUrl, uploadPostK
             return;
         }
 
+        if (noAccountsConnected) {
+            setPostResult({ success: false, msg: "Connect a social account first." });
+            return;
+        }
+
         const selectedPlatforms = Object.keys(platforms).filter(k => platforms[k]);
         if (selectedPlatforms.length === 0) {
             setPostResult({ success: false, msg: "Select at least one platform." });
@@ -736,19 +763,32 @@ export default function ResultCard({ clip, index, jobId, durableUrl, uploadPostK
                 title="post clip"
                 size="md"
                 footer={
-                    <button
-                        onClick={handlePost}
-                        disabled={posting || !canPost}
-                        className="btn-primary w-full"
-                    >
-                        {posting ? <><Loader2 size={16} className="animate-spin" /> {isScheduling ? 'scheduling…' : 'publishing…'}</> : <><Share2 size={16} /> {isScheduling ? 'schedule post' : 'publish now'}</>}
-                    </button>
+                    noAccountsConnected ? (
+                        <button onClick={handleConnectAccounts} className="btn-primary w-full">
+                            <Link2 size={16} /> connect accounts
+                        </button>
+                    ) : (
+                        <button
+                            onClick={handlePost}
+                            disabled={posting || !canPost}
+                            className="btn-primary w-full"
+                        >
+                            {posting ? <><Loader2 size={16} className="animate-spin" /> {isScheduling ? 'scheduling…' : 'publishing…'}</> : <><Share2 size={16} /> {isScheduling ? 'schedule post' : 'publish now'}</>}
+                        </button>
+                    )
                 }
             >
                 {!canPost && (
                     <div className="mb-4 px-3 py-2 rounded-input text-xs text-warn bg-[color-mix(in_oklab,var(--color-warn)_10%,transparent)] flex items-start gap-2">
                         <AlertCircle size={14} className="mt-0.5 shrink-0" />
                         <div className="lowercase">configure api key in settings first.</div>
+                    </div>
+                )}
+
+                {noAccountsConnected && (
+                    <div className="mb-4 px-3 py-2 rounded-input text-xs text-warn bg-[color-mix(in_oklab,var(--color-warn)_10%,transparent)] flex items-start gap-2">
+                        <AlertCircle size={14} className="mt-0.5 shrink-0" />
+                        <div className="lowercase">no social accounts connected yet — link tiktok, instagram or youtube to publish this clip.</div>
                     </div>
                 )}
 
@@ -809,7 +849,7 @@ export default function ResultCard({ clip, index, jobId, durableUrl, uploadPostK
                         <SegmentedControl
                             multi
                             columns={3}
-                            options={PLATFORM_OPTIONS}
+                            options={platformOptions}
                             value={Object.keys(platforms).filter(k => platforms[k])}
                             onChange={(arr) => setPlatforms({
                                 tiktok: arr.includes('tiktok'),
