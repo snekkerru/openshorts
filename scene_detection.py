@@ -13,7 +13,7 @@ case can never kill a job.
 Environment variables:
   SCENE_ENGINE          "transnetv2" (default) | "pyscenedetect" (legacy)
   SCENE_MIN_SEC         minimum scene length in seconds; shorter scenes are
-                        merged into a neighbor (default 1.0, TransNetV2 path
+                        merged into a neighbor (default 0.4, TransNetV2 path
                         only — the legacy path stays untouched)
   TRANSNETV2_THRESHOLD  shot-boundary probability threshold (default 0.5)
   TRANSNETV2_DEVICE     torch device: "auto" (default) | "cpu" | "cuda" | "mps"
@@ -119,7 +119,7 @@ def _detect_transnetv2(video_path):
     if total_frames > bounds[-1][1]:
         bounds[-1] = (bounds[-1][0], total_frames)
 
-    min_sec = float(os.environ.get("SCENE_MIN_SEC", "1.0"))
+    min_sec = float(os.environ.get("SCENE_MIN_SEC", "0.4"))
     bounds = _merge_short_scenes(bounds, fps, min_sec)
 
     scene_list = [(FrameTimecode(s, fps), FrameTimecode(e, fps))
