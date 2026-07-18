@@ -474,10 +474,9 @@ def download_youtube_video(url, output_dir="."):
             with open(cookies_path, 'w') as f:
                 f.write(cookies_env)
             if os.path.exists(cookies_path):
+                 # Never print file CONTENT here: with a headerless cookies
+                 # blob this would leak live YouTube session cookies to logs.
                  print(f"   Debug: Cookies file created. Size: {os.path.getsize(cookies_path)} bytes")
-                 with open(cookies_path, 'r') as f:
-                     content = f.read(100)
-                     print(f"   Debug: First 100 chars of cookie file: {content}")
         except Exception as e:
             print(f"⚠️ Failed to write cookies file: {e}")
             cookies_path = None
