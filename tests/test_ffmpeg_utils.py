@@ -37,9 +37,13 @@ def test_unknown_tier_raises():
 def test_nvenc_mode_uses_nvenc_when_probe_passes(monkeypatch):
     monkeypatch.setenv("FFMPEG_ENCODER", "nvenc")
     monkeypatch.setattr(ffmpeg_utils, "_probe_nvenc", lambda: True)
-    args = video_encode_args(QUALITY)
-    assert args[:2] == ["-c:v", "h264_nvenc"]
-    assert "-cq" in args
+    for tier in (QUALITY, QUALITY_FAST, DELIVERY):
+        args = video_encode_args(tier)
+        assert args[:2] == ["-c:v", "h264_nvenc"]
+        assert "-cq" in args
+        # Without an explicit yuv420p, RGB input makes nvenc emit GBR-space
+        # H.264 that web players render with wrong colors.
+        assert args[-2:] == ["-pix_fmt", "yuv420p"]
 
 
 def test_nvenc_mode_falls_back_to_x264_when_probe_fails(monkeypatch):

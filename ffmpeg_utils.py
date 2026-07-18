@@ -27,14 +27,19 @@ _X264_ARGS = {
 # NVENC -cq is not 1:1 with x264 CRF: benchmarked on the prod GPU (RTX 4000
 # Ada), cq ≈ crf + 7 lands in the same file-size ballpark, with vbr + AQ for
 # quality. Presets p1-p7: p5 ≈ "medium", p4 ≈ "fast".
+# -pix_fmt yuv420p is REQUIRED: with RGB input (the bgr24 rawvideo pipe from
+# OpenCV) nvenc otherwise emits H.264 in gbrp/GBR colorspace, which ffmpeg
+# reads fine but web players render as a magenta/green mess.
 _NVENC_ARGS = {
     QUALITY: ["-c:v", "h264_nvenc", "-preset", "p5", "-tune", "hq",
               "-rc", "vbr", "-cq", "25", "-b:v", "0",
-              "-spatial-aq", "1", "-temporal-aq", "1"],
+              "-spatial-aq", "1", "-temporal-aq", "1", "-pix_fmt", "yuv420p"],
     QUALITY_FAST: ["-c:v", "h264_nvenc", "-preset", "p4", "-tune", "hq",
-                   "-rc", "vbr", "-cq", "25", "-b:v", "0", "-spatial-aq", "1"],
+                   "-rc", "vbr", "-cq", "25", "-b:v", "0", "-spatial-aq", "1",
+                   "-pix_fmt", "yuv420p"],
     DELIVERY: ["-c:v", "h264_nvenc", "-preset", "p4",
-               "-rc", "vbr", "-cq", "29", "-b:v", "0", "-spatial-aq", "1"],
+               "-rc", "vbr", "-cq", "29", "-b:v", "0", "-spatial-aq", "1",
+               "-pix_fmt", "yuv420p"],
 }
 
 _probe_lock = threading.Lock()
