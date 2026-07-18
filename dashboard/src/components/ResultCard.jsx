@@ -505,7 +505,7 @@ export default function ResultCard({ clip, index, jobId, durableUrl, uploadPostK
     const durationReadout = formatDuration(clip);
 
     return (
-        <div className="card overflow-hidden flex flex-col md:flex-row group hover:border-rule2 transition-colors animate-fade md:h-[420px]" style={{ animationDelay: `${index * 0.1}s` }}>
+        <div className="card overflow-hidden flex flex-col md:flex-row group hover:border-rule2 transition-colors animate-fade md:min-h-[420px]" style={{ animationDelay: `${index * 0.1}s` }}>
             {/* Left: Video Preview — 9:16 column matching the fixed card height */}
             <div className="w-full md:w-[236px] bg-black relative shrink-0 aspect-[9/16] md:aspect-auto group/video">
                 <video
@@ -567,7 +567,7 @@ export default function ResultCard({ clip, index, jobId, durableUrl, uploadPostK
                 </div>
 
                 {/* Scrollable Descriptions Area */}
-                <div className="flex-1 overflow-y-auto custom-scrollbar space-y-3 pr-2 mb-4">
+                <div className="flex-1 md:max-h-[260px] overflow-y-auto custom-scrollbar space-y-3 pr-2 mb-4">
                     {/* YouTube */}
                     <div className="bg-paper rounded-input p-3 border border-rule">
                         <div className="flex items-center justify-between gap-2 mb-1.5">
