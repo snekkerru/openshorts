@@ -505,9 +505,9 @@ export default function ResultCard({ clip, index, jobId, durableUrl, uploadPostK
     const durationReadout = formatDuration(clip);
 
     return (
-        <div className="card overflow-hidden flex flex-col md:flex-row group hover:border-rule2 transition-colors animate-fade min-h-[300px] h-auto" style={{ animationDelay: `${index * 0.1}s` }}>
-            {/* Left: Video Preview (Responsive Width) */}
-            <div className="w-full md:w-[180px] lg:w-[200px] bg-black relative shrink-0 aspect-[9/16] md:aspect-auto group/video">
+        <div className="card overflow-hidden flex flex-col md:flex-row group hover:border-rule2 transition-colors animate-fade md:h-[420px]" style={{ animationDelay: `${index * 0.1}s` }}>
+            {/* Left: Video Preview — 9:16 column matching the fixed card height */}
+            <div className="w-full md:w-[236px] bg-black relative shrink-0 aspect-[9/16] md:aspect-auto group/video">
                 <video
                     ref={videoRef}
                     src={currentVideoUrl}
@@ -597,7 +597,7 @@ export default function ResultCard({ clip, index, jobId, durableUrl, uploadPostK
                                 {copied === 'caption' ? <Check size={14} className="text-ok" /> : <Copy size={14} />}
                             </button>
                         </div>
-                        <p className="text-xs text-ink2 line-clamp-3 hover:line-clamp-none transition-all cursor-pointer select-all break-words">
+                        <p className="text-xs text-ink2 select-all break-words">
                             {clip.video_description_for_tiktok || clip.video_description_for_instagram}
                         </p>
                     </div>
