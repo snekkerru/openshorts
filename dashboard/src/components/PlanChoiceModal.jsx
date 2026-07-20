@@ -1,6 +1,5 @@
 import React, { useState, useEffect } from 'react';
 import { Check, Loader2, Zap, ArrowRight } from 'lucide-react';
-import { useAuth } from '../contexts/AuthContext';
 import { apiJson } from '../lib/api';
 import Modal from './ui/Modal';
 
@@ -8,12 +7,10 @@ const PLAN_ORDER = ['starter', 'creator', 'pro'];
 const FREE_MINUTES = 20;
 const fmt = (a, c) => new Intl.NumberFormat('en-US', { style: 'currency', currency: (c || 'usd').toUpperCase(), maximumFractionDigits: 0 }).format((a || 0) / 100);
 
-// Shown right after a sign-up that isn't entitled yet, instead of dumping the
-// user on the full pricing page. Free is the default choice; paid plans check
-// out inline. The free tier needs a Google account (abuse gate), so for an
-// email-only user the free CTA offers Google sign-in.
+// Welcome popup after sign-up, instead of dumping the user on the pricing page.
+// Free is the default (any Google or permanent-email account qualifies), paid
+// plans check out inline.
 export default function PlanChoiceModal({ onClose }) {
-  const { loginWithGoogle, googleAuthEnabled } = useAuth();
   const [plans, setPlans] = useState([]);
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState(null);
@@ -39,10 +36,8 @@ export default function PlanChoiceModal({ onClose }) {
   };
 
   const startFree = () => {
-    // Free needs Google; loginWithGoogle re-auths the account as Google-linked,
-    // which flips them to entitled. A user already on Google never sees this.
-    if (googleAuthEnabled) loginWithGoogle();
-    else onClose();
+    // A signed-in user with a valid account is already on Free — just start.
+    onClose();
   };
 
   return (
@@ -66,9 +61,7 @@ export default function PlanChoiceModal({ onClose }) {
             <button onClick={startFree} className="w-full btn-primary text-sm">
               Start free <ArrowRight size={15} />
             </button>
-            {googleAuthEnabled && (
-              <p className="text-center text-[11px] text-muted mt-2 lowercase">continue with google</p>
-            )}
+            <p className="text-center text-[11px] text-muted mt-2 lowercase">no card · start clipping now</p>
           </div>
 
           {/* Paid — compact list */}

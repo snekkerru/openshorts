@@ -18,7 +18,7 @@ from pydantic import BaseModel, EmailStr
 from sqlalchemy import select, func, and_
 
 from .config import settings
-from . import database, metering
+from . import database, metering, email_policy
 from .models import User, MagicLinkToken, UploadPostProfile
 
 router = APIRouter()
@@ -131,7 +131,15 @@ class MagicVerifyRequest(BaseModel):
 async def request_magic_link(payload: MagicLinkRequest, request: Request):
     from .emails import send_magic_link_email
 
-    email = payload.email.lower()
+    # Block temp-mail before doing anything else — the free plan is open to
+    # email accounts now, so disposable domains would be a free-minute farm.
+    if email_policy.is_disposable(payload.email):
+        raise HTTPException(status_code=400, detail=(
+            "That email provider isn't supported. Please use a permanent "
+            "address (Gmail, Outlook, iCloud…) or sign in with Google."))
+
+    # Normalize (strip +tags / Gmail dots) so aliases can't mint extra accounts.
+    email = email_policy.normalize_email(payload.email)
     async with database.session() as session:
         async with session.begin():
             window_start = _now() - timedelta(minutes=MAGIC_RATE_WINDOW_MIN)

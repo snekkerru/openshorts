@@ -32,9 +32,9 @@ PLAN_MINUTES = {
 # cloud/metering.py against a synthetic calendar-month period. Setting
 # FREE_PLAN_MINUTES = 0 disables the free plan.
 FREE_PLAN_MINUTES = 20
-# Gate the free allowance behind Google sign-in; magic-link-only accounts are
-# disposable-email fodder and stay unentitled.
-FREE_REQUIRES_GOOGLE = True
+# Free is open to Google accounts AND permanent email accounts; disposable /
+# temp-mail domains are blocked at sign-up (cloud/email_policy) and aliases are
+# normalized, so the plan isn't a multi-account faucet.
 # The 20-minute monthly quota is the only bound on free usage — no daily job
 # cap (it confused users and the minute ledger already caps real cost).
 # Free users' clips expire from R2 after this many days (paid libraries are

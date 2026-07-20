@@ -123,15 +123,19 @@ async def _active_subscription(session, user_id):
 def free_plan_eligible(user) -> bool:
     """True if this ``User`` row qualifies for the free monthly allowance.
 
-    Free minutes are only for Google-authenticated accounts: magic-link-only
-    sign-ins accept disposable-email domains and would make the free plan a
-    multi-account faucet. FREE_PLAN_MINUTES = 0 disables the free plan.
+    Google accounts always qualify. Email (magic-link) accounts qualify too,
+    as long as the address isn't a disposable/temp-mail domain — sign-up already
+    blocks those (cloud/email_policy), and this is the defense-in-depth check so
+    an old disposable account can't slip through. FREE_PLAN_MINUTES = 0 disables
+    the free plan entirely.
     """
     if user is None or config.FREE_PLAN_MINUTES <= 0:
         return False
-    if config.FREE_REQUIRES_GOOGLE and not user.google_sub:
-        return False
-    return True
+    if user.google_sub:
+        return True
+    # Email account: eligible unless the domain is disposable.
+    from . import email_policy
+    return not email_policy.is_disposable(user.email or "")
 
 
 def free_period_end(now: datetime | None = None) -> datetime:

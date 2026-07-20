@@ -16,7 +16,7 @@ from starlette.responses import RedirectResponse
 from sqlalchemy import select
 
 from .config import settings
-from . import database
+from . import database, email_policy
 from .models import User
 from .auth import issue_jwt
 
@@ -77,7 +77,9 @@ async def google_callback(request: Request):
     userinfo = token.get("userinfo")
     if not userinfo:
         userinfo = await oauth.google.userinfo(token=token)
-    email = (userinfo.get("email") or "").lower()
+    # Normalize (Gmail dots / +tags) so a Google login and a magic-link account
+    # for the same real inbox key to one account.
+    email = email_policy.normalize_email(userinfo.get("email") or "")
     google_sub = userinfo.get("sub")
     if not email:
         return RedirectResponse(f"{settings.frontend_url}/#/auth/callback?error=noemail")

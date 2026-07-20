@@ -7,16 +7,22 @@ import pytest
 from cloud import config, metering
 
 
-def _user(google_sub="g-123"):
-    return SimpleNamespace(google_sub=google_sub)
+def _user(google_sub="g-123", email="x@gmail.com"):
+    return SimpleNamespace(google_sub=google_sub, email=email)
 
 
 class TestFreePlanEligible:
     def test_google_user_is_eligible(self):
         assert metering.free_plan_eligible(_user()) is True
 
-    def test_magic_link_only_user_is_not_eligible(self):
-        assert metering.free_plan_eligible(_user(google_sub=None)) is False
+    def test_permanent_email_user_is_eligible(self):
+        # Free is open to real email accounts now, not just Google.
+        assert metering.free_plan_eligible(_user(google_sub=None, email="real@gmail.com")) is True
+        assert metering.free_plan_eligible(_user(google_sub=None, email="real@outlook.com")) is True
+
+    def test_disposable_email_user_is_not_eligible(self):
+        assert metering.free_plan_eligible(_user(google_sub=None, email="x@mailinator.com")) is False
+        assert metering.free_plan_eligible(_user(google_sub=None, email="x@luckfeed.com")) is False
 
     def test_none_user_is_not_eligible(self):
         assert metering.free_plan_eligible(None) is False
@@ -24,10 +30,6 @@ class TestFreePlanEligible:
     def test_zero_minutes_disables_free_plan(self, monkeypatch):
         monkeypatch.setattr(config, "FREE_PLAN_MINUTES", 0)
         assert metering.free_plan_eligible(_user()) is False
-
-    def test_google_gate_can_be_disabled(self, monkeypatch):
-        monkeypatch.setattr(config, "FREE_REQUIRES_GOOGLE", False)
-        assert metering.free_plan_eligible(_user(google_sub=None)) is True
 
 
 class TestFreePeriodEnd:

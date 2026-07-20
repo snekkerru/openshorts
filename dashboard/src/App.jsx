@@ -541,10 +541,11 @@ function App() {
   const keysMissing = !billingEnabled && (!apiKey || !uploadPostKey);
   const needsPlan = billingEnabled && !isManaged;   // hosted, signed-out or no active plan/trial
 
-  // Fresh sign-up with no entitlement yet: show the plan-choice popup once
-  // (AuthContext set the flag after the auth redirect) instead of the pricing page.
+  // Fresh sign-up: show the welcome plan-choice popup once (AuthContext set the
+  // flag after the auth redirect). Fires for free users too, so it's gated on
+  // being signed in rather than on entitlement.
   useEffect(() => {
-    if (billingEnabled && isSignedIn && !isManaged) {
+    if (billingEnabled && isSignedIn) {
       let flagged = false;
       try { flagged = localStorage.getItem('os_show_plan_choice') === '1'; } catch (_) { /* ignore */ }
       if (flagged) {
@@ -552,7 +553,7 @@ function App() {
         try { localStorage.removeItem('os_show_plan_choice'); } catch (_) { /* ignore */ }
       }
     }
-  }, [billingEnabled, isSignedIn, isManaged]);
+  }, [billingEnabled, isSignedIn]);
   // Included in the plan (fully managed, no keys): Clip Generator + YouTube Studio.
   // Advanced (bring your own fal.ai + ElevenLabs keys): AI Shorts + AI Agent.
   const INCLUDED_TOOL_TABS = ['dashboard', 'thumbnails'];

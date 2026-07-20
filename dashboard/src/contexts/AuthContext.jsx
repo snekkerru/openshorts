@@ -69,12 +69,17 @@ export function AuthProvider({ children }) {
       // This handler only runs on the auth redirect, so a resolved user here is
       // a fresh sign-in / sign-up — the top of the conversion funnel.
       if (signedInMe?.user) track('Signup', { props: { method: kind === 'verify' ? 'magic_link' : 'google' } });
-      // Everyone lands in the app. A signed-in user with no entitlement yet
-      // (email-only sign-up) gets a plan-choice popup there instead of being
-      // dumped on the pricing page. Google sign-ins are already on the free
-      // plan, so they never see it.
-      if (signedInMe?.user && !signedInMe?.entitled) {
-        try { localStorage.setItem('os_show_plan_choice', '1'); } catch (_) { /* ignore */ }
+      // Everyone lands in the app. Show the welcome plan-choice popup once per
+      // browser (on the first auth) for anyone not already on a paid plan —
+      // free is the default, paid is one click away. Never a pricing-page dump.
+      const paid = ['starter', 'creator', 'pro'].includes(signedInMe?.plan);
+      let welcomed = false;
+      try { welcomed = localStorage.getItem('os_welcomed') === '1'; } catch (_) { /* ignore */ }
+      if (signedInMe?.user && !paid && !welcomed) {
+        try {
+          localStorage.setItem('os_show_plan_choice', '1');
+          localStorage.setItem('os_welcomed', '1');
+        } catch (_) { /* ignore */ }
       }
     } catch (e) {
       // fall through — user lands signed-out
