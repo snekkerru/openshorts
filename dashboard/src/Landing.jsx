@@ -289,14 +289,23 @@ export default function Landing({ onLaunchApp }) {
               </div>
             </form>
 
-            <div className="flex flex-wrap items-center gap-4 mb-5">
-              <button onClick={onLaunchApp} className="btn-ghost whitespace-nowrap">
-                or upload a video
+            {/* Trust line right under the CTA: the objection this removes
+                (a card) is the whole point of the free plan. */}
+            <div className="flex flex-wrap items-center gap-x-5 gap-y-2 mb-5 text-sm">
+              <span className="badge-ok whitespace-nowrap">
+                <Check size={12} /> no credit card required
+              </span>
+              <span className="text-muted lowercase">20 free min every month</span>
+              <button
+                onClick={onLaunchApp}
+                className="text-ink2 lowercase underline underline-offset-4 decoration-rule hover:text-ink hover:decoration-brass transition-colors"
+              >
+                or upload a video →
               </button>
             </div>
 
             <p className="text-sm text-muted lowercase">
-              free plan · 20 min/month · no credit card · paid plans from $12/mo without watermark. prefer to run it yourself?{' '}
+              paid plans from $12/mo without watermark. prefer to run it yourself?{' '}
               <a
                 href="https://github.com/mutonby/openshorts"
                 target="_blank"
