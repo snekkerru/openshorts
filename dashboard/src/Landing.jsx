@@ -1,5 +1,5 @@
 import React from 'react';
-import { Sparkles, Zap, Globe, FileVideo, Subtitles, Youtube, Instagram, Shield, Github, ArrowRight, Check, ChevronDown, Monitor, Cpu, Languages, Type, Upload, Scissors } from 'lucide-react';
+import { Sparkles, Zap, Globe, FileVideo, Subtitles, Youtube, Instagram, Shield, Github, ArrowRight, Check, ChevronDown, Monitor, Cpu, Languages, Type, Upload, Scissors, Link2 } from 'lucide-react';
 import PricingSection from './components/PricingSection';
 import { useAuth } from './contexts/AuthContext';
 import './landing.css';
@@ -76,6 +76,18 @@ const FAQItem = ({ question, answer, isOpen, onClick }) => (
 export default function Landing({ onLaunchApp }) {
   const { billingEnabled } = useAuth();
   const [openFaq, setOpenFaq] = React.useState(null);
+  const [heroUrl, setHeroUrl] = React.useState('');
+
+  // Hand the pasted link to the app: MediaInput picks it up on mount, so the
+  // user lands with their own video ready instead of on a pricing page.
+  const handleHeroSubmit = (e) => {
+    e.preventDefault();
+    const url = heroUrl.trim();
+    if (url) {
+      try { localStorage.setItem('os_pending_url', url); } catch { /* ignore */ }
+    }
+    onLaunchApp();
+  };
 
   const features = [
     {
@@ -254,23 +266,33 @@ export default function Landing({ onLaunchApp }) {
               turn long videos into viral 9:16 shorts, or generate ugc marketing videos with ai actors. online, in the cloud, zero setup.
             </p>
 
+            {/* The hero CTA is the product itself: paste a link and land in the
+                app with it loaded. Sign-in is asked for at generate time, not
+                before the user has seen anything. */}
+            <form onSubmit={handleHeroSubmit} className="mb-5">
+              <div className="hero-input-row flex flex-col sm:flex-row items-stretch gap-3">
+                <div className="relative flex-1 min-w-0">
+                  <Link2 size={16} className="absolute left-4 top-1/2 -translate-y-1/2 text-muted pointer-events-none" />
+                  <input
+                    type="url"
+                    value={heroUrl}
+                    onChange={(e) => setHeroUrl(e.target.value)}
+                    placeholder="paste a youtube link"
+                    className="input-field pl-11"
+                    aria-label="YouTube video link"
+                  />
+                </div>
+                <button type="submit" className="btn-primary whitespace-nowrap">
+                  get free clips
+                  <ArrowRight size={16} />
+                </button>
+              </div>
+            </form>
+
             <div className="flex flex-wrap items-center gap-4 mb-5">
-              {billingEnabled ? (
-                <a href="#pricing" className="btn-primary whitespace-nowrap">
-                  start free
-                  <ArrowRight size={16} />
-                </a>
-              ) : (
-                <button onClick={onLaunchApp} className="btn-primary whitespace-nowrap">
-                  launch openshorts
-                  <ArrowRight size={16} />
-                </button>
-              )}
-              {billingEnabled && (
-                <button onClick={onLaunchApp} className="btn-ghost whitespace-nowrap">
-                  launch the app
-                </button>
-              )}
+              <button onClick={onLaunchApp} className="btn-ghost whitespace-nowrap">
+                or upload a video
+              </button>
             </div>
 
             <p className="text-sm text-muted lowercase">

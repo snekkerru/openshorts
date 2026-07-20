@@ -40,6 +40,21 @@ export default function MediaInput({ onProcess, isProcessing }) {
             .catch(() => {});
     }, []);
 
+    // A link pasted in the landing hero: preload it here so the user picks up
+    // where they left off. Not auto-submitted — the rights attestation below
+    // has to be ticked by the user.
+    useEffect(() => {
+        let pending = null;
+        try {
+            pending = localStorage.getItem('os_pending_url');
+            if (pending) localStorage.removeItem('os_pending_url');
+        } catch { /* ignore */ }
+        if (pending) {
+            setMode('url');
+            setUrl(pending);
+        }
+    }, []);
+
     const handleSubmit = (e) => {
         e.preventDefault();
         if (!acknowledged) return;
