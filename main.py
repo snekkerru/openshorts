@@ -687,11 +687,17 @@ def render_clip(input_video, final_output_video, output_format="auto"):
     return process_video_to_vertical(input_video, final_output_video, aspect_ratio=aspect)
 
 
-# Watermark geometry, as fractions of the clip width/height. Top-left (not
-# bottom) on purpose: the bottom strip is what gets cropped away when a clip is
-# re-posted, so a bottom mark is trivially removed.
+# Watermark geometry, as fractions of the clip width/height.
+#
+# Vertical placement is the whole point: the top and bottom strips of a 9:16
+# clip are either black bars or blurred filler (GENERAL layout), so a mark up
+# there is cropped away without touching a single pixel of real footage. At 40%
+# of the height it sits inside the content band — a 16:9 source letterboxed
+# into 9:16 spans roughly 34%-66% — so removing the mark means cutting into the
+# picture. Left-aligned, like OpusClip's.
 WATERMARK_WIDTH_RATIO = 0.30
 WATERMARK_MARGIN_RATIO = 0.05
+WATERMARK_Y_RATIO = 0.40
 WATERMARK_OPACITY = 0.85
 
 
@@ -722,8 +728,8 @@ def apply_watermark(video_path):
         return False
 
     wm_w = max(80, int(vw * WATERMARK_WIDTH_RATIO))
-    # Same pixel inset on both axes so the corner gap reads as square.
-    x = y = int(vw * WATERMARK_MARGIN_RATIO)
+    x = int(vw * WATERMARK_MARGIN_RATIO)
+    y = int(vh * WATERMARK_Y_RATIO)
     filt = (
         f"[1:v]scale={wm_w}:-1,format=rgba,"
         f"colorchannelmixer=aa={WATERMARK_OPACITY}[wm];"

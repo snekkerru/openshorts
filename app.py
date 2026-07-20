@@ -1075,6 +1075,7 @@ async def get_source_video(job_id: str):
 @app.get("/api/jobs/{job_id}/download-all")
 async def download_all_clips(job_id: str, request: Request):
     """Bundle the current version of every clip of a job into one ZIP."""
+    await _ensure_job_files(job_id, request)
     if job_id in jobs:
         await _assert_job_owner(request, jobs[job_id])
 
@@ -1086,9 +1087,20 @@ async def download_all_clips(job_id: str, request: Request):
     with open(json_files[0], 'r', encoding='utf-8') as f:
         data = json.load(f)
 
+    # The metadata file on disk never carries video_url — the pipeline doesn't
+    # write it, it's injected into the in-memory job record. So prefer the live
+    # record (it also tracks edits like subtitled_/hook_ renames) and fall back
+    # to the canonical name a job/restore rebuilds, instead of finding nothing.
+    base_name = os.path.basename(json_files[0]).replace('_metadata.json', '')
+    mem_clips = ((jobs.get(job_id) or {}).get('result') or {}).get('clips') or []
+
     files = []
     for i, clip in enumerate(data.get('shorts', [])):
-        filename = os.path.basename(clip.get('video_url', '').split('/')[-1])
+        url = None
+        if i < len(mem_clips):
+            url = (mem_clips[i] or {}).get('video_url')
+        url = url or clip.get('video_url')
+        filename = os.path.basename(url.split('/')[-1]) if url else f"{base_name}_clip_{i+1}.mp4"
         path = os.path.join(output_dir, filename)
         if filename and os.path.exists(path):
             files.append((i, path))
@@ -1220,6 +1232,33 @@ async def restore_project(job_id: str, request: Request):
     }
 
 
+async def _ensure_job_files(job_id: str, request: Request) -> bool:
+    """Make a completed job usable again after its working files vanished.
+
+    OUTPUT_DIR is not durable — a container restart or redeploy wipes it — so
+    endpoints that read a job's files would 404 on a project the user can still
+    see in their library. Pull it back from R2 on demand (same path as the
+    explicit /restore), so editing keeps working instead of dead-ending.
+
+    Returns True when the job is available afterwards. Never raises: callers
+    keep their own 404s for jobs that genuinely don't exist.
+    """
+    job_dir = os.path.join(OUTPUT_DIR, job_id)
+    if job_id in jobs and glob.glob(os.path.join(job_dir, "*_metadata.json")):
+        return True
+    if not BILLING_ENABLED:
+        return False
+    try:
+        await restore_project(job_id, request)
+        print(f"♻️  Auto-restored {job_id} from the library (working files were gone).")
+        return True
+    except HTTPException:
+        return False
+    except Exception as e:
+        print(f"⚠️  Auto-restore failed for {job_id}: {e}")
+        return False
+
+
 from editor import VideoEditor
 from subtitles import generate_srt, generate_ass, burn_subtitles, generate_srt_from_video
 from hooks import add_hook_to_video
@@ -1246,6 +1285,7 @@ async def edit_clip(
     if not final_api_key:
         raise gemini_missing_error()
 
+    await _ensure_job_files(req.job_id, request)
     if req.job_id not in jobs:
         raise HTTPException(status_code=404, detail="Job not found")
 
@@ -1407,6 +1447,7 @@ class SubtitleRequest(BaseModel):
 @app.get("/api/clip/{job_id}/{clip_index}/transcript")
 async def get_clip_transcript(job_id: str, clip_index: int, request: Request):
     """Return word-level captions for a specific clip, formatted for Remotion."""
+    await _ensure_job_files(job_id, request)
     if job_id not in jobs:
         raise HTTPException(status_code=404, detail="Job not found")
 
@@ -1504,6 +1545,7 @@ async def generate_effects_config(
     if not final_api_key:
         raise gemini_missing_error()
 
+    await _ensure_job_files(req.job_id, request)
     if req.job_id not in jobs:
         raise HTTPException(status_code=404, detail="Job not found")
 
@@ -1612,6 +1654,7 @@ async def generate_effects_config(
 @app.post("/api/subtitle")
 async def add_subtitles(req: SubtitleRequest, request: Request):
     await require_managed_entitlement(request)
+    await _ensure_job_files(req.job_id, request)
     if req.job_id not in jobs:
         raise HTTPException(status_code=404, detail="Job not found")
     
@@ -1773,6 +1816,7 @@ class HookRequest(BaseModel):
 @app.post("/api/hook")
 async def add_hook(req: HookRequest, request: Request):
     await require_managed_entitlement(request)
+    await _ensure_job_files(req.job_id, request)
     if req.job_id not in jobs:
         raise HTTPException(status_code=404, detail="Job not found")
 
@@ -1881,6 +1925,7 @@ async def translate_clip(
     if not x_elevenlabs_key:
         raise HTTPException(status_code=400, detail="Missing X-ElevenLabs-Key header")
 
+    await _ensure_job_files(req.job_id, request)
     if req.job_id not in jobs:
         raise HTTPException(status_code=404, detail="Job not found")
 
@@ -1975,6 +2020,7 @@ import httpx
 
 @app.post("/api/social/post")
 async def post_to_socials(req: SocialPostRequest, request: Request):
+    await _ensure_job_files(req.job_id, request)
     if req.job_id not in jobs:
         raise HTTPException(status_code=404, detail="Job not found")
 
