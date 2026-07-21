@@ -1101,6 +1101,75 @@ def get_viral_clips(transcript_result, video_duration):
         return None
 
 
+def get_visual_clips(video_path, video_duration, language="en"):
+    """Clip a SILENT video by vision: Gemini watches the footage and picks the
+    most engaging visual moments (no transcript). Returns the same
+    {"shorts", "cost_analysis"} shape as get_viral_clips, or None."""
+    print("🎥  Silent video — analyzing with Gemini vision (no transcript)...")
+    api_key = os.getenv("GEMINI_API_KEY")
+    if not api_key:
+        print("❌ Error: GEMINI_API_KEY not found.")
+        return None
+    client = genai.Client(api_key=api_key)
+    model_name = os.environ.get("GEMINI_MODEL") or 'gemini-3.1-flash-lite'
+    print(f"🎥  Model: {model_name} | uploading {os.path.basename(video_path)}…")
+
+    file_upload = None
+    try:
+        file_upload = client.files.upload(file=video_path)
+        deadline = time.time() + 180
+        while True:
+            info = client.files.get(name=file_upload.name)
+            state = str(getattr(getattr(info, "state", info), "name", "")).upper()
+            if state == "ACTIVE":
+                break
+            if state == "FAILED":
+                print("❌ Gemini could not process the video.")
+                return None
+            if time.time() > deadline:
+                print("❌ Gemini video processing timed out.")
+                return None
+            time.sleep(2)
+
+        prompt = gemini_worker.VISUAL_PROMPT_TEMPLATE.format(
+            video_duration=video_duration, language=language)
+        config = genai_types.GenerateContentConfig(
+            response_mime_type="application/json",
+            response_schema=gemini_worker.VisualResponse,
+        )
+        response = client.models.generate_content(
+            model=model_name, contents=[file_upload, prompt], config=config)
+        parsed = json.loads(response.text)
+        shorts = parsed.get("shorts") or []
+        # Clamp to the real duration; drop anything degenerate.
+        clean = []
+        for s in shorts:
+            s["start"] = max(0.0, float(s.get("start", 0)))
+            s["end"] = min(float(video_duration), float(s.get("end", 0)))
+            if s["end"] - s["start"] >= 1.0:
+                clean.append(s)
+        if not clean:
+            print("⚠️ Vision pass returned no usable clips.")
+            return None
+
+        cost = gemini_worker._calculate_cost_analysis(response, model_name)
+        if cost:
+            print(f"💰 Vision cost ({model_name}): ${cost.get('total_cost', 0):.6f}")
+        result = {"shorts": clean}
+        if cost:
+            result["cost_analysis"] = cost
+        return result
+    except Exception as e:
+        print(f"❌ Gemini vision error: {e}")
+        return None
+    finally:
+        if file_upload is not None:
+            try:
+                client.files.delete(name=file_upload.name)
+            except Exception:
+                pass
+
+
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(description="AutoCrop-Vertical with Viral Clip Detection.")
     
@@ -1167,39 +1236,38 @@ if __name__ == '__main__':
         output_file = args.output if args.output else os.path.join(output_dir, f"{video_title}_vertical.mp4")
         render_clip(input_video, output_file, output_format)
     else:
-        # 3. Transcribe
-        from transcribe_backends import NoAudioError
-        try:
-            transcript = transcribe_video(input_video)
-        except NoAudioError as e:
-            # Clear, user-facing failure (not a Python traceback) so the UI can
-            # tell them exactly what's wrong. Prefixed so app.py surfaces it.
-            import sys
-            msg = f"❌ NO_AUDIO: {e}"
-            print(msg, file=sys.stdout)
-            print(msg, file=sys.stderr)
-            sys.stdout.flush(); sys.stderr.flush()
-            raise SystemExit(msg)
-
-        # Get duration
+        # Get duration (needed by both the transcript and the vision path).
         cap = cv2.VideoCapture(input_video)
         fps = cap.get(cv2.CAP_PROP_FPS)
         frame_count = int(cap.get(cv2.CAP_PROP_FRAME_COUNT))
         duration = frame_count / fps
         cap.release()
 
-        # 4. Gemini Analysis
-        clips_data = get_viral_clips(transcript, duration)
-        
+        # 3. Transcribe — unless the video has no audio, in which case fall back
+        # to Gemini vision (picks clips from the imagery instead of the speech).
+        from transcribe_backends import NoAudioError
+        transcript = None
+        try:
+            transcript = transcribe_video(input_video)
+        except NoAudioError as e:
+            print(f"🔇 {e} — switching to visual analysis.")
+
+        # 4. Gemini Analysis (transcript-driven, or vision for silent videos)
+        if transcript is not None:
+            clips_data = get_viral_clips(transcript, duration)
+        else:
+            clips_data = get_visual_clips(input_video, duration)
+
         if not clips_data or 'shorts' not in clips_data:
             print("❌ Failed to identify clips. Converting whole video as fallback.")
             output_file = os.path.join(output_dir, f"{video_title}_vertical.mp4")
             render_clip(input_video, output_file, output_format)
         else:
-            print(f"🔥 Found {len(clips_data['shorts'])} viral clips!")
-            
-            # Save metadata
-            clips_data['transcript'] = transcript # Save full transcript for subtitles
+            print(f"🔥 Found {len(clips_data['shorts'])} clips!")
+
+            # Save metadata. Silent videos have no transcript → no subtitles,
+            # which is correct (there's no speech to caption).
+            clips_data['transcript'] = transcript or {"language": "none", "segments": []}
             metadata_file = os.path.join(output_dir, f"{video_title}_metadata.json")
             with open(metadata_file, 'w') as f:
                 json.dump(clips_data, f, indent=2)

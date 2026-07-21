@@ -44,6 +44,43 @@ class DetailResponse(BaseModel):
     shorts: List[DetailClipModel]
 
 
+# Visual (no-transcript) clip selection: Gemini watches a silent video and
+# picks moments from the imagery. Same output shape as DetailClipModel minus
+# the transcript-only source_window_id.
+class VisualClipModel(BaseModel):
+    start: float
+    end: float
+    predicted_score: int
+    video_description_for_tiktok: str
+    video_description_for_instagram: str
+    video_title_for_youtube_short: str
+    viral_hook_text: str
+
+
+class VisualResponse(BaseModel):
+    shorts: List[VisualClipModel]
+
+
+VISUAL_PROMPT_TEMPLATE = """
+You are a senior short-form video editor. This video has NO speech/audio — judge
+it purely by what you SEE. Watch the whole thing and pick the 3–15 MOST engaging
+visual moments for TikTok / Reels / Shorts (action, reveals, transformations,
+striking or funny shots, satisfying payoffs, dramatic movement).
+
+TIME CONTRACT — STRICT:
+- Timestamps in ABSOLUTE SECONDS from the start (usable with ffmpeg -ss/-to).
+- Only numbers with up to 3 decimals (e.g. 0, 12.5, 47.250).
+- 0 <= start < end <= {video_duration}.
+- Each clip 15 to 60 seconds long. If the whole video is shorter than 15s,
+  return one clip spanning the full video.
+- Cut on visual scene changes, never mid-motion.
+
+For each clip write catchy copy in {language} (a scroll-stopping hook, a TikTok
+and an Instagram description, and a YouTube title ≤100 chars). Order clips best
+to worst by how likely they are to stop a viewer scrolling.
+"""
+
+
 def _configure_stdio() -> None:
     for stream_name in ("stdout", "stderr"):
         stream = getattr(sys, stream_name, None)
