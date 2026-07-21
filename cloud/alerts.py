@@ -48,6 +48,11 @@ def _cooldown_ok(kind: str) -> bool:
     return True
 
 
+# Prefix on every OpenShorts Telegram message. The chat is shared with other
+# products (Upload-Post, …), so this tags which one each alert is from.
+TELEGRAM_PREFIX = "OPENSHORTS ✂️ - "
+
+
 async def send_telegram(text: str):
     """Push a plain-text message to the admin's Telegram chat. No-op if unset.
 
@@ -58,7 +63,8 @@ async def send_telegram(text: str):
     try:
         import httpx
         url = f"https://api.telegram.org/bot{settings.telegram_bot_token}/sendMessage"
-        payload = {"chat_id": settings.telegram_chat_id, "text": text,
+        payload = {"chat_id": settings.telegram_chat_id,
+                   "text": TELEGRAM_PREFIX + text,
                    "disable_web_page_preview": True}
         async with httpx.AsyncClient(timeout=10) as client:
             await client.post(url, json=payload)
