@@ -572,11 +572,11 @@ def download_youtube_video(url, output_dir="."):
         hd_fmt = 'bestvideo[vcodec^=avc1][ext=mp4]+bestaudio[ext=m4a]/bestvideo[vcodec^=avc1]+bestaudio/best[ext=mp4]/best'
     fallback_fmt = 'best[ext=mp4]/best'
 
-    def _base_opts(extractor_args):
+    def _base_opts(extractor_args, proxy):
         return {
             'quiet': False, 'verbose': True, 'no_warnings': False,
             'cookiefile': cookies_path if cookies_path else None,
-            'proxy': _proxy, 'socket_timeout': 30, 'retries': 10, 'fragment_retries': 10,
+            'proxy': proxy, 'socket_timeout': 30, 'retries': 10, 'fragment_retries': 10,
             'nocheckcertificate': True, 'cachedir': False,
             'extractor_args': extractor_args,
             'http_headers': {
@@ -597,15 +597,16 @@ def download_youtube_video(url, output_dir="."):
                                       or d.get('total_bytes_estimate')
                                       or d.get('downloaded_bytes') or 0)
 
-    def _attempt(extractor_args, fmt):
-        with yt_dlp.YoutubeDL(_base_opts(extractor_args)) as ydl:
+    def _attempt(extractor_args, fmt, proxy):
+        _dl_bytes["total"] = 0
+        with yt_dlp.YoutubeDL(_base_opts(extractor_args, proxy)) as ydl:
             info = ydl.extract_info(url, download=False)
         sanitized = sanitize_filename(info.get('title', 'youtube_video'))
         expected = os.path.join(output_dir, f'{sanitized}.mp4')
         if os.path.exists(expected):
             os.remove(expected)
         dl_opts = {
-            **_base_opts(extractor_args),
+            **_base_opts(extractor_args, proxy),
             'format': fmt,
             'outtmpl': os.path.join(output_dir, f'{sanitized}.%(ext)s'),
             'merge_output_format': 'mp4', 'overwrites': True,
@@ -615,14 +616,26 @@ def download_youtube_video(url, output_dir="."):
             ydl.download([url])
         return sanitized
 
-    attempts = ([('HD', hd_args, hd_fmt)] if hd_args else []) + [('fallback', fallback_args, fallback_fmt)]
+    # DIRECT_FIRST=1: try the server's own IP before spending proxy bandwidth.
+    # Needs cookies + a PO-token provider — without both, YouTube flags the
+    # datacenter IP after the first request (verified in prod, 21-jul-2026).
+    _direct_first = (os.environ.get("DIRECT_FIRST", "").strip() == "1"
+                     and _proxy and hd_args and cookies_path)
+
+    attempts = (
+        ([('HD-direct', hd_args, hd_fmt, None)] if _direct_first else [])
+        + ([('HD', hd_args, hd_fmt, _proxy)] if hd_args else [])
+        + [('fallback', fallback_args, fallback_fmt, _proxy)]
+    )
 
     sanitized_title = None
     last_err = None
-    for label, ea, fmt in attempts:
+    used_proxy = False
+    for label, ea, fmt, proxy in attempts:
         try:
             print(f"📥 Download attempt: {label}")
-            sanitized_title = _attempt(ea, fmt)
+            sanitized_title = _attempt(ea, fmt, proxy)
+            used_proxy = proxy is not None
             print(f"✅ Download succeeded ({label}).")
             break
         except Exception as e:
@@ -652,9 +665,11 @@ Technical Details: {str(last_err)}
                 downloaded_file = os.path.join(output_dir, f)
                 break
 
-    if _proxy and _dl_bytes["total"]:
+    if used_proxy and _dl_bytes["total"]:
         # Machine-parseable marker consumed by app.py's log reader for the
         # monthly proxy-bandwidth counter. Not shown to clients (log filter).
+        # Only emitted when the winning attempt actually went through the
+        # proxy — direct-first successes are free bandwidth.
         print(f"PROXY_BYTES={_dl_bytes['total']}")
     print(f"✅ Video downloaded in {time.time() - step_start_time:.2f}s: {downloaded_file}")
     return downloaded_file, sanitized_title
