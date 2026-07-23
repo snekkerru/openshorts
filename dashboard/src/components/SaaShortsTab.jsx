@@ -32,13 +32,21 @@ function loadCache() {
   } catch { return null; }
 }
 
-function saveCache(url, analysis, webResearch, scripts) {
+function saveCache(url, analysis, webResearch, scripts, extra = {}) {
   try {
     localStorage.setItem(CACHE_KEY, JSON.stringify({
-      url, analysis, webResearch, scripts, timestamp: Date.now(),
+      url, analysis, webResearch, scripts, ...extra, timestamp: Date.now(),
     }));
   } catch { /* localStorage full */ }
 }
+
+// The user's native Russian ElevenLabs voices — always offered when language
+// is ru, even if the fetched library filter would miss them (label gaps).
+const RU_VOICES = [
+  { voice_id: 'D5RRIJYa9pFwxiSpbGbR', name: 'Русский женский', labels: { gender: 'female', accent: 'russian' } },
+  { voice_id: 'M1CSR3PJBsfWU6ZquG3C', name: 'Русский мужской 1', labels: { gender: 'male', accent: 'russian' } },
+  { voice_id: 'vpUqfpCIn34tjFW4KHjt', name: 'Русский мужской 2', labels: { gender: 'male', accent: 'russian' } },
+];
 
 export default function SaaShortsTab({ openrouterKey, orTextModel, elevenLabsKey, falKey, uploadPostKey, uploadUserId, managed = false }) {
   // Managed (hosted plan): script LLM + Upload-Post run server-side via the
@@ -58,9 +66,10 @@ export default function SaaShortsTab({ openrouterKey, orTextModel, elevenLabsKey
   const [url, setUrl] = useState(() => loadCache()?.url || '');
   const [videoMode, setVideoMode] = useState('lowcost'); // "lowcost" or "premium"
   const [description, setDescription] = useState('');
-  const [style, setStyle] = useState('ugc');
-  const [language, setLanguage] = useState('en');
-  const [actorGender, setActorGender] = useState('female');
+  // Restored from cache so a reload keeps the voice picker on the right language.
+  const [style, setStyle] = useState(() => loadCache()?.style || 'ugc');
+  const [language, setLanguage] = useState(() => loadCache()?.language || 'en');
+  const [actorGender, setActorGender] = useState(() => loadCache()?.actorGender || 'female');
   const [numScripts, setNumScripts] = useState(3);
   const [analyzing, setAnalyzing] = useState(false);
   const [analyzeError, setAnalyzeError] = useState('');
@@ -247,7 +256,7 @@ export default function SaaShortsTab({ openrouterKey, orTextModel, elevenLabsKey
       setFromCache(false);
 
       // Cache results
-      saveCache(url.trim(), data.analysis, data.web_research, data.scripts);
+      saveCache(url.trim(), data.analysis, data.web_research, data.scripts, { language, actorGender, style });
 
       // Pre-fill actor description and narration from first script
       if (data.scripts.length > 0) {
@@ -293,7 +302,7 @@ export default function SaaShortsTab({ openrouterKey, orTextModel, elevenLabsKey
     updated.full_narration = (updated.segments || []).map((s) => s.narration).join(' ');
     const newScripts = scripts.map((s, i) => (i === editingScript ? updated : s));
     setScripts(newScripts);
-    saveCache(url.trim(), analysis, webResearch, newScripts);
+    saveCache(url.trim(), analysis, webResearch, newScripts, { language, actorGender, style });
     if (editingScript === selectedScript) {
       setEditedNarration(updated.full_narration);
     }
@@ -899,9 +908,14 @@ export default function SaaShortsTab({ openrouterKey, orTextModel, elevenLabsKey
                   Voice {language === 'ru' ? '(Russian)' : '(English)'}
                 </label>
                 {(() => {
+                  // Russian: the native voices are always in the pool — the
+                  // fetched library may lack them or their gender labels.
+                  const pool = language === 'ru'
+                    ? [...RU_VOICES, ...voices.filter((v) => !RU_VOICES.some((r) => r.voice_id === v.voice_id))]
+                    : voices;
                   // Filter voices by language/accent
-                  const filtered = voices.length > 0
-                    ? voices.filter((v) => {
+                  const filtered = pool.length > 0
+                    ? pool.filter((v) => {
                         const gender = (v.labels?.gender || '').toLowerCase();
                         // Only show voices that match the selected gender
                         return gender === actorGender;
@@ -968,13 +982,8 @@ export default function SaaShortsTab({ openrouterKey, orTextModel, elevenLabsKey
                       { id: 'TxGEqnHWrfWFTfGW9XjX', name: 'Josh (deep)' },
                       { id: 'yoZ06aMxZJJ28mfd3POQ', name: 'Sam (raspy)' },
                     ],
-                    'ru-female': [
-                      { id: 'D5RRIJYa9pFwxiSpbGbR', name: 'Русский женский' },
-                    ],
-                    'ru-male': [
-                      { id: 'M1CSR3PJBsfWU6ZquG3C', name: 'Русский мужской 1' },
-                      { id: 'vpUqfpCIn34tjFW4KHjt', name: 'Русский мужской 2' },
-                    ],
+                    'ru-female': RU_VOICES.filter((v) => v.labels.gender === 'female').map((v) => ({ id: v.voice_id, name: v.name })),
+                    'ru-male': RU_VOICES.filter((v) => v.labels.gender === 'male').map((v) => ({ id: v.voice_id, name: v.name })),
                   };
                   const key = `${language}-${actorGender}`;
                   const opts = defaults[key] || defaults['en-female'];
