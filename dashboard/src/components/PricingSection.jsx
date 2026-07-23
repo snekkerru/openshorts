@@ -79,7 +79,7 @@ export default function PricingSection({ onRequireLogin }) {
       <div className="grid md:grid-cols-2 lg:grid-cols-4 gap-6">
         {/* Free tier — no card, Google sign-in only */}
         <div className="relative card p-6 flex flex-col">
-          <h3 className="font-display lowercase text-xl text-ink">free</h3>
+          <h3 className="font-display text-xl text-ink">Free</h3>
           <p className="text-muted text-sm mb-4 lowercase">Try it on your own videos</p>
           <div className="mb-4 flex items-baseline gap-1.5">
             <span className="font-display text-4xl text-ink tabular-nums">$0</span>
@@ -114,7 +114,7 @@ export default function PricingSection({ onRequireLogin }) {
                   Most popular
                 </span>
               )}
-              <h3 className="font-display lowercase text-xl text-ink">{plan}</h3>
+              <h3 className="font-display text-xl text-ink">{plan}</h3>
               <p className="text-muted text-sm mb-4 lowercase">{PLAN_BLURB[plan]}</p>
               <div className="mb-4 flex items-baseline gap-1.5">
                 <span className="font-display text-4xl text-ink tabular-nums">{fmt(entry.amount, entry.currency)}</span>
@@ -175,7 +175,7 @@ export default function PricingSection({ onRequireLogin }) {
           <div className="flex flex-col sm:flex-row items-start gap-4 min-w-0">
             <div className="p-3 rounded-input bg-paper3 text-muted shrink-0"><Server size={18} /></div>
             <div className="min-w-0">
-              <h3 className="font-display lowercase text-lg text-ink flex flex-wrap items-center gap-2">
+              <h3 className="font-display text-lg text-ink flex flex-wrap items-center gap-2">
                 Free forever — self-hosted
                 <span className="badge-ok">$0</span>
               </h3>

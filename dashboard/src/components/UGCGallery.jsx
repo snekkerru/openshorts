@@ -45,7 +45,7 @@ export default function UGCGallery() {
       <div className="flex flex-wrap items-end justify-between gap-3">
         <div>
           <p className="eyebrow mb-1">04 · UGC GALLERY</p>
-          <h2 className="font-display lowercase text-2xl md:text-3xl text-ink">ugc gallery</h2>
+          <h2 className="font-display text-2xl md:text-3xl text-ink">UGC Gallery</h2>
           <p className="readout mt-2">{videos.length} videos · {avatars.length} avatars</p>
         </div>
         <a

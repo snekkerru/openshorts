@@ -81,8 +81,6 @@ export default function SaaShortsTab({ geminiApiKey, elevenLabsKey, falKey, uplo
   const [actorGallery, setActorGallery] = useState([]);
   const [loadingGallery, setLoadingGallery] = useState(false);
   const [uploadedActorPreview, setUploadedActorPreview] = useState(null); // {localPreview, serverUrl}
-  const [productPhoto, setProductPhoto] = useState(null); // {preview, serverUrl}
-  const [productDescription, setProductDescription] = useState('');
 
   // Step 3: Generate
   const [generating, setGenerating] = useState(false);
@@ -108,6 +106,7 @@ export default function SaaShortsTab({ geminiApiKey, elevenLabsKey, falKey, uplo
       setActorDescription(scripts[0].actor_description || '');
       setEditedNarration(scripts[0].full_narration || '');
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   // Fetch actor gallery on mount
@@ -125,6 +124,7 @@ export default function SaaShortsTab({ geminiApiKey, elevenLabsKey, falKey, uplo
     if (elevenLabsKey) {
       fetchVoices();
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [elevenLabsKey]);
 
   // Reset selected voice when actor gender changes
@@ -142,6 +142,7 @@ export default function SaaShortsTab({ geminiApiKey, elevenLabsKey, falKey, uplo
     } else {
       setSelectedVoice(genderDefaults[`${language}-${actorGender}`] || genderDefaults['en-female']);
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [actorGender, language]);
 
   // Poll generation status
@@ -398,7 +399,7 @@ export default function SaaShortsTab({ geminiApiKey, elevenLabsKey, falKey, uplo
         <div className="flex items-end justify-between mb-2">
           <div>
             <p className="eyebrow mb-2">02 · AI SHORTS</p>
-            <h1 className="font-display lowercase text-2xl text-ink">AI Shorts</h1>
+            <h1 className="font-display text-2xl text-ink">AI Shorts</h1>
           </div>
           {step > 0 && (
             <button onClick={handleReset} className="text-xs lowercase text-muted hover:text-ink flex items-center gap-1 transition-colors">
@@ -709,7 +710,7 @@ export default function SaaShortsTab({ geminiApiKey, elevenLabsKey, falKey, uplo
             {/* Scripts */}
             <div>
               <div className="flex items-center justify-between mb-4">
-                <h2 className="font-display lowercase text-xl text-ink">Generated Scripts</h2>
+                <h2 className="font-display text-xl text-ink">Generated Scripts</h2>
                 <span className="readout">{scripts.length} scripts</span>
               </div>
 
@@ -796,7 +797,7 @@ export default function SaaShortsTab({ geminiApiKey, elevenLabsKey, falKey, uplo
         {step === 2 && scripts[selectedScript] && (
           <div className="animate-fade space-y-6">
             <div className="card p-6 space-y-5">
-              <h2 className="font-display lowercase text-xl text-ink">Configure Video</h2>
+              <h2 className="font-display text-xl text-ink">Configure Video</h2>
               <p className="text-sm lowercase text-muted">
                 script: <strong className="text-ink2 normal-case font-medium">{scripts[selectedScript].title}</strong>
               </p>
@@ -1168,7 +1169,7 @@ export default function SaaShortsTab({ geminiApiKey, elevenLabsKey, falKey, uplo
           <div className="animate-fade space-y-6">
             <div className="card p-6">
               <div className="flex items-center justify-between mb-5">
-                <h2 className="font-display lowercase text-xl text-ink">Video Generation</h2>
+                <h2 className="font-display text-xl text-ink">Video Generation</h2>
                 <span className={
                   genStatus === 'processing' ? 'badge-brass' :
                   genStatus === 'completed' ? 'badge-ok' :
@@ -1272,7 +1273,7 @@ export default function SaaShortsTab({ geminiApiKey, elevenLabsKey, falKey, uplo
         {step === 4 && genResult && (
           <div className="animate-fade space-y-6">
             <div className="card p-6">
-              <h2 className="font-display lowercase text-xl text-ink mb-4">
+              <h2 className="font-display text-xl text-ink mb-4">
                 Your Short is Ready
               </h2>
 

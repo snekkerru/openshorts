@@ -22,6 +22,11 @@
     outline-offset: 2px;
     transition: none;
   }
+
+  /* display font is a sans now — give headings weight so they still read as display */
+  .font-display {
+    font-weight: 600;
+  }
 }
 
 @layer components {

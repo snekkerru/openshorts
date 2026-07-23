@@ -107,7 +107,7 @@ export default function Gallery() {
             <div className="flex items-end justify-between mb-8">
                 <div>
                     <p className="eyebrow mb-1.5">Library</p>
-                    <h1 className="font-display lowercase text-2xl text-ink">Clip Gallery</h1>
+                    <h1 className="font-display text-2xl text-ink">Clip Gallery</h1>
                 </div>
                 <span className="readout">
                     {clips.length} {clips.length === 1 ? 'Clip' : 'Clips'}{hasMore ? '+' : ''}

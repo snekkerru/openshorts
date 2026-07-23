@@ -8,7 +8,7 @@ const SUPPORT_EMAIL = 'info@openshorts.app';
 function Section({ title, children }) {
     return (
         <section className="mb-10">
-            <h2 className="font-display lowercase text-xl text-ink mb-3">{title}</h2>
+            <h2 className="font-display text-xl text-ink mb-3">{title}</h2>
             <div className="text-ink2 leading-relaxed space-y-3 text-sm">{children}</div>
         </section>
     );
@@ -42,7 +42,7 @@ export default function Legal() {
             </header>
 
             <main className="max-w-[65ch] mx-auto px-6 py-12">
-                <h1 className="font-display lowercase text-3xl md:text-4xl text-ink mb-3">Terms & Privacy</h1>
+                <h1 className="font-display text-3xl md:text-4xl text-ink mb-3">Terms & Privacy</h1>
                 <p className="readout mb-12">Last updated: {LAST_UPDATED}</p>
 
                 <Section title="The short version">

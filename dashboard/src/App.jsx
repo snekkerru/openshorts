@@ -689,7 +689,7 @@ function App() {
           <div className="w-8 h-8 bg-paper3 rounded-input flex items-center justify-center shrink-0 overflow-hidden border border-rule">
             <img src="/logo-openshorts.png" alt="Logo" className="w-full h-full object-cover" />
           </div>
-          <span className="font-display lowercase text-lg text-ink hidden lg:block">openshorts</span>
+          <span className="font-display text-lg text-ink hidden lg:block">OpenShorts</span>
         </a>
 
         <nav className="flex-1 px-4 py-4 space-y-1">
@@ -872,7 +872,7 @@ function App() {
               <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-4 mb-8">
                 <div>
                   <p className="eyebrow mb-1.5">07 · SETTINGS</p>
-                  <h1 className="font-display lowercase text-2xl text-ink">Settings</h1>
+                  <h1 className="font-display text-2xl text-ink">Settings</h1>
                 </div>
                 <div className="flex items-center gap-2 text-xs text-muted mt-1">
                   <Shield size={12} className="text-ok shrink-0" /> Privacy: keys only live in your browser (sent to backend just to process)
@@ -1112,7 +1112,7 @@ function App() {
                   <p className="eyebrow flex items-center gap-2">
                     <Bot size={12} /> 03 · AI AGENT · AUTONOMOUS SKILL
                   </p>
-                  <h1 className="font-display lowercase text-3xl md:text-4xl text-ink">
+                  <h1 className="font-display text-3xl md:text-4xl text-ink">
                     Your Personal Clipping Team
                   </h1>
                   <p className="text-muted text-base md:text-lg leading-relaxed max-w-2xl">
@@ -1168,7 +1168,7 @@ function App() {
                 <div className="card p-6 md:p-8 space-y-5">
                   <div className="flex items-start justify-between gap-4 flex-wrap">
                     <div>
-                      <h2 className="font-display lowercase text-xl text-ink mb-1">skill-autoshorts</h2>
+                      <h2 className="font-display text-xl text-ink mb-1">skill-autoshorts</h2>
                       <p className="text-sm text-muted">
                         The Claude Code skill that powers this workflow. Install it once and trigger it whenever you want a fresh batch of clips.
                       </p>
@@ -1252,7 +1252,7 @@ function App() {
               <div className="max-w-xl w-full text-center space-y-8">
                 <div className="space-y-4">
                   <p className="eyebrow">01 · CLIP GENERATOR</p>
-                  <h1 className="font-display lowercase text-4xl md:text-5xl text-ink">
+                  <h1 className="font-display text-4xl md:text-5xl text-ink">
                     Create Viral Shorts
                   </h1>
                   <p className="text-muted text-lg">
@@ -1337,7 +1337,7 @@ function App() {
 
               {/* Right Panel: Results Grid */}
               <div className={`${status === 'complete' ? 'w-full md:w-[70%] lg:w-[75%]' : 'w-full md:w-[45%] lg:w-[40%]'} md:h-full flex flex-col shrink-0 md:shrink card p-4 sm:p-6 transition-all duration-700 ease-in-out`}>
-                <h2 className="font-display lowercase text-xl text-ink mb-6 flex flex-wrap items-center gap-2 shrink-0">
+                <h2 className="font-display text-xl text-ink mb-6 flex flex-wrap items-center gap-2 shrink-0">
                   Generated Shorts
                   {results?.clips?.length > 0 && (
                     <span className="readout bg-paper3 px-2.5 py-1 rounded-full ml-auto">

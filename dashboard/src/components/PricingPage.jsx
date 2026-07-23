@@ -120,7 +120,7 @@ export default function PricingPage({ onRequireLogin }) {
       <header className="px-6 pt-20 pb-12">
         <div className="max-w-6xl mx-auto text-center">
           <p className="eyebrow mb-5">Pricing</p>
-          <h1 className="font-display lowercase text-ink tracking-tight text-4xl md:text-6xl leading-[1.02] mb-5">
+          <h1 className="font-display text-ink tracking-tight text-4xl md:text-6xl leading-[1.02] mb-5">
             start clipping in minutes.
           </h1>
           <p className="readout">free plan · 20 min/month · no credit card</p>
@@ -175,7 +175,7 @@ export default function PricingPage({ onRequireLogin }) {
         <div className="max-w-3xl mx-auto">
           <div className="mb-10">
             <p className="eyebrow mb-3">Billing · FAQ</p>
-            <h2 className="font-display text-3xl md:text-4xl lowercase text-ink tracking-tight">
+            <h2 className="font-display text-3xl md:text-4xl text-ink tracking-tight">
               common questions
             </h2>
           </div>
@@ -196,7 +196,7 @@ export default function PricingPage({ onRequireLogin }) {
       {/* Closing statement */}
       <section className="px-6 py-24 border-t border-rule">
         <div className="max-w-3xl mx-auto text-center">
-          <h2 className="font-display text-4xl md:text-5xl lowercase text-ink tracking-tight mb-10">
+          <h2 className="font-display text-4xl md:text-5xl text-ink tracking-tight mb-10">
             twenty free minutes. every month. no card until you decide.
           </h2>
           <div className="flex flex-wrap items-center justify-center gap-4">

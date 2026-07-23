@@ -189,6 +189,7 @@ export default function ResultCard({ clip, index, jobId, durableUrl, uploadPostK
                 });
             }
         }
+        // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [showModal, clip]);
 
     const handleAutoEdit = async () => {

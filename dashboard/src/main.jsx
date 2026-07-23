@@ -13,11 +13,11 @@ function PageShell({ title, children }) {
   return (
     <div className="min-h-screen bg-paper text-ink2">
       <header className="h-16 border-b border-rule bg-paper flex items-center justify-between px-6">
-        <a href="#app" className="font-display lowercase text-lg text-ink">OpenShorts</a>
+        <a href="#app" className="font-display text-lg text-ink">OpenShorts</a>
         <a href="#app" className="text-sm lowercase text-muted hover:text-ink transition-colors">← Back to app</a>
       </header>
       <main className="p-8">
-        {title && <h1 className="font-display lowercase text-3xl text-ink text-center mb-10">{title}</h1>}
+        {title && <h1 className="font-display text-3xl text-ink text-center mb-10">{title}</h1>}
         {children}
       </main>
     </div>

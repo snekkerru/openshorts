@@ -17,7 +17,7 @@ const APPARATUS_CALLOUTS = ['RATIO · 9:16', 'CLIPS · 3–15', 'DUB · 30+ LANG
 const SectionHeader = ({ eyebrow, title, children }) => (
   <div className="mb-12">
     <p className="eyebrow mb-3">{eyebrow}</p>
-    <h2 className="font-display text-3xl md:text-4xl lowercase text-ink tracking-tight mb-4">{title}</h2>
+    <h2 className="font-display text-3xl md:text-4xl text-ink tracking-tight mb-4">{title}</h2>
     {children && <p className="text-muted max-w-2xl leading-relaxed">{children}</p>}
   </div>
 );
@@ -29,7 +29,7 @@ const FeatureCard = ({ icon, title, description }) => {
       <div className="w-10 h-10 rounded-input bg-paper3 flex items-center justify-center mb-4">
         <Icon size={18} className="text-brass" />
       </div>
-      <h3 className="font-display text-xl lowercase text-ink mb-2">{title}</h3>
+      <h3 className="font-display text-xl text-ink mb-2">{title}</h3>
       <p className="text-muted text-sm leading-relaxed">{description}</p>
     </div>
   );
@@ -226,7 +226,7 @@ export default function Landing({ onLaunchApp }) {
         <div className="max-w-6xl mx-auto px-6 py-4 flex items-center justify-between">
           <div className="flex items-center gap-3">
             <img src="/logo-openshorts.png" alt="OpenShorts logo" className="w-7 h-7" />
-            <span className="font-display text-lg lowercase text-ink">OpenShorts</span>
+            <span className="font-display text-lg text-ink">OpenShorts</span>
           </div>
           <div className="hidden md:flex items-center gap-7 text-sm lowercase text-muted">
             <a href="#features" className="hover:text-ink transition-colors">Features</a>
@@ -419,7 +419,7 @@ export default function Landing({ onLaunchApp }) {
             <div className="card p-8 flex flex-col border-brass">
               <div className="flex flex-wrap items-center gap-3 mb-3">
                 <Sparkles size={18} className="text-brass" />
-                <h3 className="font-display text-2xl lowercase text-ink">cloud — openshorts.app</h3>
+                <h3 className="font-display text-2xl text-ink">Cloud — openshorts.app</h3>
                 <span className="badge-brass">Recommended · Free Plan</span>
               </div>
               <ul className="space-y-1.5 mb-6 flex-1">
@@ -440,7 +440,7 @@ export default function Landing({ onLaunchApp }) {
             <div className="card p-8 flex flex-col">
               <div className="flex flex-wrap items-center gap-3 mb-3">
                 <Github size={18} className="text-muted" />
-                <h3 className="font-display text-2xl lowercase text-ink">self-hosted — for developers</h3>
+                <h3 className="font-display text-2xl text-ink">Self-hosted — for developers</h3>
                 <span className="readout border border-rule rounded-full px-2.5 py-1">Free · Docker</span>
               </div>
               <ul className="space-y-1.5 mb-6 flex-1">
@@ -479,7 +479,7 @@ export default function Landing({ onLaunchApp }) {
             <div className="card p-8">
               <p className="eyebrow mb-4">01 · Clips</p>
               <Scissors size={20} className="text-brass mb-4" />
-              <h3 className="font-display text-2xl lowercase text-ink mb-2">Clip Generator</h3>
+              <h3 className="font-display text-2xl text-ink mb-2">Clip Generator</h3>
               <p className="text-muted text-sm leading-relaxed mb-4">Open source AI clipping tool: turn long-form videos into viral-ready 9:16 shorts.</p>
               <ul className="space-y-1.5">
                 {['AI viral moment detection', 'Smart face-tracking crop', 'Auto subtitles + AI dubbing in 30+ languages'].map((f, i) => (
@@ -490,7 +490,7 @@ export default function Landing({ onLaunchApp }) {
             <div className="card p-8">
               <p className="eyebrow mb-4">02 · AI Shorts</p>
               <Sparkles size={20} className="text-brass mb-4" />
-              <h3 className="font-display text-2xl lowercase text-ink mb-2">AI Shorts</h3>
+              <h3 className="font-display text-2xl text-ink mb-2">AI Shorts</h3>
               <p className="text-muted text-sm leading-relaxed mb-4">UGC marketing videos with AI actors for any business.</p>
               <ul className="space-y-1.5">
                 {['AI actor generation + lip-sync', 'B-roll + TikTok-style subtitles', 'From $0.65 per video'].map((f, i) => (
@@ -501,7 +501,7 @@ export default function Landing({ onLaunchApp }) {
             <div className="card p-8">
               <p className="eyebrow mb-4">03 · Studio</p>
               <Monitor size={20} className="text-brass mb-4" />
-              <h3 className="font-display text-2xl lowercase text-ink mb-2">YouTube Studio</h3>
+              <h3 className="font-display text-2xl text-ink mb-2">YouTube Studio</h3>
               <p className="text-muted text-sm leading-relaxed mb-4">Free AI YouTube toolkit: thumbnails, titles, descriptions.</p>
               <ul className="space-y-1.5">
                 {['AI thumbnail generator (with face upload)', '10 viral title suggestions + chat', 'Direct publish to YouTube'].map((f, i) => (
@@ -539,7 +539,7 @@ export default function Landing({ onLaunchApp }) {
               <div className="w-10 h-10 rounded-input bg-paper3 flex items-center justify-center mb-4">
                 <Cpu size={18} className="text-brass" />
               </div>
-              <h3 className="font-display text-xl lowercase text-ink mb-1">Google Gemini API</h3>
+              <h3 className="font-display text-xl text-ink mb-1">Google Gemini API</h3>
               <div className="mb-3"><span className="badge-ok">Free tier: 1,500 req/day</span></div>
               <p className="text-muted text-sm leading-relaxed">Powers all AI features: viral moment detection, title generation, video effects, YouTube thumbnail creation, and description writing. The core engine of OpenShorts.</p>
             </div>
@@ -548,7 +548,7 @@ export default function Landing({ onLaunchApp }) {
               <div className="w-10 h-10 rounded-input bg-paper3 flex items-center justify-center mb-4">
                 <Languages size={18} className="text-brass" />
               </div>
-              <h3 className="font-display text-xl lowercase text-ink mb-1">ElevenLabs API</h3>
+              <h3 className="font-display text-xl text-ink mb-1">ElevenLabs API</h3>
               <div className="mb-3"><span className="badge-ok">Free tier included</span></div>
               <p className="text-muted text-sm leading-relaxed">Enables AI voice dubbing and translation in 30+ languages. Preserves the original speaker's voice while translating audio. Dubbed clips are auto-subtitled.</p>
             </div>
@@ -557,7 +557,7 @@ export default function Landing({ onLaunchApp }) {
               <div className="w-10 h-10 rounded-input bg-paper3 flex items-center justify-center mb-4">
                 <Globe size={18} className="text-brass" />
               </div>
-              <h3 className="font-display text-xl lowercase text-ink mb-1">Upload-Post API</h3>
+              <h3 className="font-display text-xl text-ink mb-1">Upload-Post API</h3>
               <div className="mb-3"><span className="badge-ok">Free tier included</span></div>
               <p className="text-muted text-sm leading-relaxed">Enables direct publishing to YouTube, TikTok, and Instagram Reels from the dashboard. <a href="https://www.upload-post.com" target="_blank" rel="noopener noreferrer" className="text-brass underline hover:brightness-110">Social media API</a> that lets you post your clips and thumbnails without leaving OpenShorts.</p>
             </div>
@@ -568,7 +568,7 @@ export default function Landing({ onLaunchApp }) {
               <div className="w-10 h-10 rounded-input bg-paper3 flex items-center justify-center mb-4">
                 <Zap size={18} className="text-brass" />
               </div>
-              <h3 className="font-display text-xl lowercase text-ink mb-1">fal.ai API</h3>
+              <h3 className="font-display text-xl text-ink mb-1">fal.ai API</h3>
               <div className="mb-3"><span className="badge-ok">Pay-per-use from $0.04</span></div>
               <p className="text-muted text-sm leading-relaxed">Powers AI Shorts: generates AI actor images (Flux), talking head videos (Hailuo/Kling), and lip-sync (VEED). Required only for the AI UGC video generator.</p>
             </div>
@@ -577,7 +577,7 @@ export default function Landing({ onLaunchApp }) {
               <div className="w-10 h-10 rounded-input bg-paper3 flex items-center justify-center mb-4">
                 <Languages size={18} className="text-brass" />
               </div>
-              <h3 className="font-display text-xl lowercase text-ink mb-1">ElevenLabs TTS</h3>
+              <h3 className="font-display text-xl text-ink mb-1">ElevenLabs TTS</h3>
               <div className="mb-3"><span className="badge-ok">Free tier included</span></div>
               <p className="text-muted text-sm leading-relaxed">Generates natural voiceovers for AI Shorts from the script. Multiple voice options for male and female actors in English and Spanish.</p>
             </div>
@@ -697,7 +697,7 @@ export default function Landing({ onLaunchApp }) {
             ].map((useCase, i) => (
               <div key={i} className="card p-6">
                 <useCase.icon size={18} className="text-brass mb-4" />
-                <h3 className="font-display text-xl lowercase text-ink mb-2">{useCase.title}</h3>
+                <h3 className="font-display text-xl text-ink mb-2">{useCase.title}</h3>
                 <p className="text-muted text-sm leading-relaxed">{useCase.description}</p>
               </div>
             ))}
@@ -728,7 +728,7 @@ export default function Landing({ onLaunchApp }) {
       {/* CTA Section — final statement */}
       <section className="py-24 px-6 border-t border-rule">
         <div className="max-w-3xl mx-auto text-center">
-          <h2 className="font-display text-4xl md:text-5xl lowercase text-ink tracking-tight mb-5">start creating viral videos today.</h2>
+          <h2 className="font-display text-4xl md:text-5xl text-ink tracking-tight mb-5">Start creating viral videos today.</h2>
           <p className="text-muted mb-10 max-w-xl mx-auto leading-relaxed lowercase">free plan · 20 min/month · no credit card — or self-host free with docker.</p>
           <div className="flex flex-wrap items-center justify-center gap-4">
             {billingEnabled ? (
@@ -758,7 +758,7 @@ export default function Landing({ onLaunchApp }) {
       {/* Footer — Ft5 Statement */}
       <footer className="border-t border-rule py-16 px-6">
         <div className="max-w-6xl mx-auto">
-          <p className="font-display text-3xl md:text-5xl lowercase text-ink tracking-tight mb-10">clip it before it scrolls past.</p>
+          <p className="font-display text-3xl md:text-5xl text-ink tracking-tight mb-10">Clip it before it scrolls past.</p>
           <div className="border-t border-rule pt-6 flex flex-col md:flex-row md:items-center justify-between gap-4">
             <div className="flex items-center gap-3">
               <img src="/logo-openshorts.png" alt="OpenShorts" className="w-6 h-6" />
