@@ -25,6 +25,9 @@ import { apiFetch, apiJson, QuotaError } from './lib/api';
 
 // Enhanced "Encryption" using XOR + Base64 with a Salt
 // This is better than plain Base64 but still client-side.
+// Fork: Upload-Post publishing UI is hidden; flip to restore the Settings card.
+const SHOW_UPLOAD_POST_SETTINGS = false;
+
 const SECRET_KEY = import.meta.env.VITE_ENCRYPTION_KEY || "OpenShorts-Static-Salt-Change-Me";
 const ENCRYPTION_PREFIX = "ENC:";
 
@@ -952,6 +955,8 @@ function App() {
               {/* Fork: Gemini key only feeds hidden tools (Clip Generator etc.) — hidden with them. */}
               {/* <KeyInput onKeySet={setApiKey} savedKey={apiKey} /> */}
 
+              {/* Fork: Upload-Post publishing hidden — flip the flag to restore. */}
+              {SHOW_UPLOAD_POST_SETTINGS && (
               <div className="card p-4 sm:p-6 mt-8">
                 <div className="flex flex-wrap items-center justify-between gap-2 mb-4">
                   <div className="flex items-center gap-3">
@@ -1003,6 +1008,7 @@ function App() {
                   </p>
                 </div>
               </div>
+              )}
 
                 </>
               )}

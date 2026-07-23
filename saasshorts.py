@@ -358,7 +358,7 @@ def generate_scripts(
     import llm
 
     model = model or llm.resolve_text_model()
-    lang_name = "Spanish" if language == "es" else "English"
+    lang_name = {"es": "Spanish", "ru": "Russian"}.get(language, "English")
     print(f"[SaaSShorts] 📝 Generating {num_scripts} scripts ({style}, {lang_name}, {model})...")
 
     style_guide = {
@@ -370,7 +370,13 @@ def generate_scripts(
     }
 
     lang_instructions = ""
-    if language == "es":
+    if language == "ru":
+        lang_instructions = """
+LANGUAGE: ALL narrations, subtitles, captions, and hashtags MUST be in RUSSIAN.
+Use natural casual Russian like a real person would speak on TikTok. Colloquial, conversational, slang OK.
+Examples of Russian UGC hooks: "Не могу поверить, что никто мне раньше это не показал...", "Если ты до сих пор делаешь это в Excel — срочно смотри", "Сейчас покажу штуку, которая реально изменила мою работу..."
+"""
+    elif language == "es":
         lang_instructions = """
 LANGUAGE: ALL narrations, subtitles, captions, and hashtags MUST be in SPANISH (Spain/Latin America).
 Use natural casual Spanish like a real person would speak on TikTok. Contractions, slang OK.

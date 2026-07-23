@@ -135,8 +135,9 @@ export default function SaaShortsTab({ openrouterKey, orTextModel, elevenLabsKey
     const genderDefaults = {
       'en-female': '21m00Tcm4TlvDq8ikWAM',  // Rachel
       'en-male': '29vD33N1CtxCmqQRPOHJ',    // Drew
-      'es-female': 'EXAVITQu4vr4xnSDxMaL',  // Bella
-      'es-male': 'ErXwobaYiN019PkySvjV',     // Antoni
+      // eleven_multilingual_v2 speaks Russian with any voice; same defaults
+      'ru-female': '21m00Tcm4TlvDq8ikWAM',  // Rachel
+      'ru-male': '29vD33N1CtxCmqQRPOHJ',    // Drew
     };
     // If we have fetched voices, pick the first matching one; otherwise use hardcoded default
     const matchingVoice = voices.find(v => (v.labels?.gender || '').toLowerCase() === actorGender);
@@ -493,7 +494,7 @@ export default function SaaShortsTab({ openrouterKey, orTextModel, elevenLabsKey
                   <SegmentedControl
                     options={[
                       { value: 'en', label: 'English', icon: '🇺🇸' },
-                      { value: 'es', label: 'Español', icon: '🇪🇸' },
+                      { value: 'ru', label: 'Русский', icon: '🇷🇺' },
                     ]}
                     value={language}
                     onChange={setLanguage}
@@ -808,7 +809,7 @@ export default function SaaShortsTab({ openrouterKey, orTextModel, elevenLabsKey
               {/* Voice Selection */}
               <div>
                 <label className="eyebrow block mb-2">
-                  Voice {language === 'es' ? '(Spanish)' : '(English)'}
+                  Voice {language === 'ru' ? '(Russian)' : '(English)'}
                 </label>
                 {(() => {
                   // Filter voices by language/accent
@@ -821,10 +822,10 @@ export default function SaaShortsTab({ openrouterKey, orTextModel, elevenLabsKey
                       .sort((a, b) => {
                         const aAccent = (a.labels?.accent || '').toLowerCase();
                         const bAccent = (b.labels?.accent || '').toLowerCase();
-                        if (language === 'es') {
-                          // Spanish/latin accents first, then everything else
-                          const aScore = (aAccent.includes('spanish') || aAccent.includes('latin')) ? 0 : 1;
-                          const bScore = (bAccent.includes('spanish') || bAccent.includes('latin')) ? 0 : 1;
+                        if (language === 'ru') {
+                          // Russian accents first, then everything else
+                          const aScore = aAccent.includes('russian') ? 0 : 1;
+                          const bScore = bAccent.includes('russian') ? 0 : 1;
                           return aScore - bScore;
                         }
                         // English: american/british first
@@ -880,13 +881,13 @@ export default function SaaShortsTab({ openrouterKey, orTextModel, elevenLabsKey
                       { id: 'TxGEqnHWrfWFTfGW9XjX', name: 'Josh (deep)' },
                       { id: 'yoZ06aMxZJJ28mfd3POQ', name: 'Sam (raspy)' },
                     ],
-                    'es-female': [
-                      { id: 'EXAVITQu4vr4xnSDxMaL', name: 'Bella (suave)' },
-                      { id: '21m00Tcm4TlvDq8ikWAM', name: 'Rachel (calmada)' },
+                    'ru-female': [
+                      { id: '21m00Tcm4TlvDq8ikWAM', name: 'Rachel (спокойная)' },
+                      { id: 'EXAVITQu4vr4xnSDxMaL', name: 'Bella (мягкая)' },
                     ],
-                    'es-male': [
-                      { id: 'ErXwobaYiN019PkySvjV', name: 'Antoni (cálido)' },
-                      { id: '29vD33N1CtxCmqQRPOHJ', name: 'Drew (confiado)' },
+                    'ru-male': [
+                      { id: '29vD33N1CtxCmqQRPOHJ', name: 'Drew (уверенный)' },
+                      { id: 'ErXwobaYiN019PkySvjV', name: 'Antoni (тёплый)' },
                     ],
                   };
                   const key = `${language}-${actorGender}`;
