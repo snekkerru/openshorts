@@ -10,7 +10,7 @@ export default defineConfig([
     files: ['**/*.{js,jsx}'],
     extends: [
       js.configs.recommended,
-      reactHooks.configs.flat.recommended,
+      reactHooks.configs.recommended,
       reactRefresh.configs.vite,
     ],
     languageOptions: {
@@ -23,7 +23,24 @@ export default defineConfig([
       },
     },
     rules: {
-      'no-unused-vars': ['error', { varsIgnorePattern: '^[A-Z_]' }],
+      // caughtErrors: 'none' keeps the ESLint 8 default — `catch (e)` with an
+      // unused param is idiomatic here for best-effort try/catch.
+      'no-unused-vars': ['error', { varsIgnorePattern: '^[A-Z_]', caughtErrors: 'none' }],
+    },
+  },
+  {
+    // Entry point, context (hook + provider) and modal (helper + component)
+    // intentionally mix exports — HMR granularity is not a concern for them.
+    files: ['src/main.jsx', 'src/contexts/**/*.jsx', 'src/components/WatermarkModal.jsx'],
+    rules: {
+      'react-refresh/only-export-components': 'off',
+    },
+  },
+  {
+    // Node context: vite config reads process.env.
+    files: ['vite.config.js'],
+    languageOptions: {
+      globals: globals.node,
     },
   },
 ])
