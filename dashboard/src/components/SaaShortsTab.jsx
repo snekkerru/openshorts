@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { Globe, Sparkles, Download, Copy, Check, ChevronRight, ChevronLeft, Loader2, AlertCircle, Volume2, User, Film, Terminal, ChevronDown, RefreshCw, Share2, Calendar, Upload } from 'lucide-react';
+import { Globe, Sparkles, Download, Copy, Check, ChevronRight, ChevronLeft, Loader2, AlertCircle, Volume2, User, Film, Terminal, ChevronDown, RefreshCw, Share2, Calendar, Upload, Pencil } from 'lucide-react';
 import { getApiUrl } from '../config';
 import { apiFetch } from '../lib/api';
 import StepIndicator from './ui/StepIndicator';
@@ -269,6 +269,36 @@ export default function SaaShortsTab({ openrouterKey, orTextModel, elevenLabsKey
       setActorDescription(scripts[idx].actor_description || '');
       setEditedNarration(scripts[idx].full_narration || '');
     }
+  };
+
+  // ── Inline script editing (selection step) ──
+  const [editingScript, setEditingScript] = useState(null); // script index or null
+  const [draftScript, setDraftScript] = useState(null);     // deep copy under edit
+
+  const handleStartScriptEdit = (idx) => {
+    setEditingScript(idx);
+    setDraftScript(JSON.parse(JSON.stringify(scripts[idx])));
+  };
+
+  const handleDraftSegmentChange = (segIdx, narration) => {
+    setDraftScript((d) => ({
+      ...d,
+      segments: d.segments.map((s, j) => (j === segIdx ? { ...s, narration } : s)),
+    }));
+  };
+
+  const handleSaveScriptEdit = () => {
+    const updated = { ...draftScript };
+    // The voiceover reads full_narration — keep it in sync with the segments.
+    updated.full_narration = (updated.segments || []).map((s) => s.narration).join(' ');
+    const newScripts = scripts.map((s, i) => (i === editingScript ? updated : s));
+    setScripts(newScripts);
+    saveCache(url.trim(), analysis, webResearch, newScripts);
+    if (editingScript === selectedScript) {
+      setEditedNarration(updated.full_narration);
+    }
+    setEditingScript(null);
+    setDraftScript(null);
   };
 
   const handleGenerate = async () => {
@@ -745,9 +775,20 @@ export default function SaaShortsTab({ openrouterKey, orTextModel, elevenLabsKey
                           <span className="readout">{script.duration_seconds}s &middot; {script.style} &middot; {script.target_platform}</span>
                         </div>
                       </div>
-                      {selectedScript === i && (
-                        <span className="badge-brass">selected</span>
-                      )}
+                      <div className="flex items-center gap-2">
+                        {editingScript !== i && (
+                          <button
+                            onClick={(e) => { e.stopPropagation(); handleStartScriptEdit(i); }}
+                            className="btn-quiet py-1 px-3 text-xs"
+                            title="Edit script text"
+                          >
+                            <Pencil size={12} /> Edit
+                          </button>
+                        )}
+                        {selectedScript === i && (
+                          <span className="badge-brass">selected</span>
+                        )}
+                      </div>
                     </div>
 
                     {/* Segments preview */}
@@ -768,6 +809,44 @@ export default function SaaShortsTab({ openrouterKey, orTextModel, elevenLabsKey
                     </div>
                     <p className="readout mb-3">hook &middot; problem &middot; solution</p>
 
+                    {editingScript === i && draftScript ? (
+                      <div className="space-y-2" onClick={(e) => e.stopPropagation()}>
+                        {(draftScript.segments || []).map((seg, j) => (
+                          <div key={j} className="flex gap-3 text-xs">
+                            <span className="readout shrink-0 w-16 pt-2">
+                              {seg.type}
+                            </span>
+                            <textarea
+                              value={seg.narration}
+                              onChange={(e) => handleDraftSegmentChange(j, e.target.value)}
+                              rows={2}
+                              className="input-field text-xs resize-y flex-1 !py-2"
+                            />
+                          </div>
+                        ))}
+                        <div className="flex gap-3 text-xs items-center">
+                          <span className="readout shrink-0 w-16">hook</span>
+                          <input
+                            type="text"
+                            value={draftScript.hook_text || ''}
+                            onChange={(e) => setDraftScript((d) => ({ ...d, hook_text: e.target.value }))}
+                            className="input-field text-xs flex-1 !py-2"
+                          />
+                        </div>
+                        <div className="flex justify-end gap-2 pt-2">
+                          <button
+                            onClick={() => { setEditingScript(null); setDraftScript(null); }}
+                            className="btn-ghost py-1.5 px-4 text-xs"
+                          >
+                            Cancel
+                          </button>
+                          <button onClick={handleSaveScriptEdit} className="btn-primary py-1.5 px-4 text-xs">
+                            <Check size={12} /> Save
+                          </button>
+                        </div>
+                      </div>
+                    ) : (
+                    <>
                     <div className="space-y-2">
                       {(script.segments || []).map((seg, j) => (
                         <div key={j} className="flex gap-3 text-xs">
@@ -787,6 +866,8 @@ export default function SaaShortsTab({ openrouterKey, orTextModel, elevenLabsKey
                         <span key={j} className="readout">{tag}</span>
                       ))}
                     </div>
+                    </>
+                    )}
                   </div>
                 ))}
               </div>
