@@ -21,5 +21,9 @@ def gemini_key() -> Optional[str]:
     return settings.managed_gemini_key or None
 
 
+def openrouter_key() -> Optional[str]:
+    return settings.managed_openrouter_key or None
+
+
 def upload_post_key() -> Optional[str]:
     return settings.managed_upload_post_key or None

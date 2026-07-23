@@ -196,6 +196,10 @@ class Settings:
         return os.environ.get("MANAGED_GEMINI_API_KEY", "")
 
     @property
+    def managed_openrouter_key(self) -> str:
+        return os.environ.get("MANAGED_OPENROUTER_API_KEY", "")
+
+    @property
     def managed_upload_post_key(self) -> str:
         return os.environ.get("MANAGED_UPLOAD_POST_API_KEY", "")
 

@@ -203,6 +203,15 @@ function App() {
     return '';
   });
 
+  // OpenRouter API State (AI Shorts text calls) - Load encrypted
+  const [openrouterKey, setOpenrouterKey] = useState(() => {
+    const stored = localStorage.getItem('openrouterKey_v1');
+    if (stored) return decrypt(stored);
+    return '';
+  });
+  // Model override for AI Shorts text calls (not a secret — stored plain)
+  const [orTextModel, setOrTextModel] = useState(() => localStorage.getItem('orTextModel_v1') || '');
+
   const [uploadUserId, setUploadUserId] = useState(() => localStorage.getItem('uploadUserId') || '');
   const [userProfiles, setUserProfiles] = useState([]); // List of {username, connected: []}
   const [showKeyModal, setShowKeyModal] = useState(false);
@@ -218,7 +227,8 @@ function App() {
   const [logs, setLogs] = useState([]);
   const [logsVisible, setLogsVisible] = useState(true);
   const [processingMedia, setProcessingMedia] = useState(null);
-  const [activeTab, setActiveTab] = useState('dashboard'); // dashboard, settings
+  // Fork default: only AI Shorts + Settings are exposed (see navItems).
+  const [activeTab, setActiveTab] = useState('saasshorts'); // saasshorts, settings
   // Reopened-project state (paid mode): per-clip {index, server_file, active_layers}
   // restored from the backend so ResultCards resume editing where they left off.
   const [projectState, setProjectState] = useState(null);
@@ -232,6 +242,7 @@ function App() {
   // Silent-success "saved" states for the settings key inputs (design.md: no alert popups)
   const [elevenLabsSaved, setElevenLabsSaved] = useState(false);
   const [falSaved, setFalSaved] = useState(false);
+  const [orSaved, setOrSaved] = useState(false);
 
   // Sync state for original video playback
   const [syncedTime, setSyncedTime] = useState(0);
@@ -384,7 +395,8 @@ function App() {
         else if (!session.noSource) setProcessingMedia({ type: 'server', payload: `/api/source/${session.jobId}` });
         if (session.noSource) setNoSource(true);
         if (session.projectState) setProjectState(session.projectState);
-        if (session.activeTab) setActiveTab(session.activeTab);
+        // Only restore tabs that are still exposed in this fork's nav.
+        if (['saasshorts', 'settings'].includes(session.activeTab)) setActiveTab(session.activeTab);
         // If was processing, resume polling; if complete/error, just show results
         setStatus(session.status === 'processing' ? 'processing' : session.status);
         setSessionRecovered(true);
@@ -451,6 +463,16 @@ function App() {
       localStorage.setItem('falKey_v1', encrypt(falKey));
     }
   }, [falKey]);
+
+  useEffect(() => {
+    if (openrouterKey) {
+      localStorage.setItem('openrouterKey_v1', encrypt(openrouterKey));
+    }
+  }, [openrouterKey]);
+
+  useEffect(() => {
+    localStorage.setItem('orTextModel_v1', orTextModel);
+  }, [orTextModel]);
 
   useEffect(() => {
     if ((uploadPostKey || isManaged) && userProfiles.length === 0) {
@@ -538,7 +560,9 @@ function App() {
 
   // Hosted is paid-only (no BYOK core). Self-host uses BYOK keys.
   // `keysMissing` now means "self-host BYOK keys missing" — it never fires on hosted.
-  const keysMissing = !billingEnabled && (!apiKey || !uploadPostKey);
+  // Fork: Gemini/Upload-Post only feed hidden tools; AI Shorts checks its own
+  // keys inline, so the global warning is permanently off.
+  const keysMissing = false;
   const needsPlan = billingEnabled && !isManaged;   // hosted, signed-out or no active plan/trial
 
   // Fresh sign-up: show the welcome plan-choice popup once (AuthContext set the
@@ -673,14 +697,16 @@ function App() {
   // --- UI Components ---
 
   const Sidebar = () => {
+    // Fork: only AI Shorts + Settings are used; the rest of the app is hidden
+    // (code kept intact — restore a line here to bring a section back).
     const navItems = [
-      { id: 'dashboard', ord: '01', icon: LayoutDashboard, label: 'Clip Generator' },
-      { id: 'saasshorts', ord: '02', icon: Sparkles, label: 'AI Shorts', byok: true },
-      { id: 'ai-agent', ord: '03', icon: Bot, label: 'AI Agent', byok: true },
-      { id: 'ugc-gallery', ord: '04', icon: LayoutGrid, label: 'UGC Gallery' },
-      { id: 'thumbnails', ord: '05', icon: Image, label: 'YouTube Studio' },
-      ...(billingEnabled && isSignedIn ? [{ id: 'history', ord: '06', icon: History, label: 'History' }] : []),
-      { id: 'settings', ord: '07', icon: Settings, label: 'Settings' },
+      // { id: 'dashboard', ord: '01', icon: LayoutDashboard, label: 'Clip Generator' },
+      { id: 'saasshorts', ord: '01', icon: Sparkles, label: 'AI Shorts', byok: true },
+      // { id: 'ai-agent', ord: '03', icon: Bot, label: 'AI Agent', byok: true },
+      // { id: 'ugc-gallery', ord: '04', icon: LayoutGrid, label: 'UGC Gallery' },
+      // { id: 'thumbnails', ord: '05', icon: Image, label: 'YouTube Studio' },
+      // ...(billingEnabled && isSignedIn ? [{ id: 'history', ord: '06', icon: History, label: 'History' }] : []),
+      { id: 'settings', ord: '02', icon: Settings, label: 'Settings' },
     ];
 
     return (
@@ -871,7 +897,7 @@ function App() {
             <div className="h-full overflow-y-auto p-4 sm:p-8 max-w-2xl mx-auto animate-fade">
               <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-4 mb-8">
                 <div>
-                  <p className="eyebrow mb-1.5">07 · SETTINGS</p>
+                  <p className="eyebrow mb-1.5">02 · SETTINGS</p>
                   <h1 className="font-display text-2xl text-ink">Settings</h1>
                 </div>
                 <div className="flex items-center gap-2 text-xs text-muted mt-1">
@@ -923,7 +949,8 @@ function App() {
                 </div>
               ) : (
                 <>
-              <KeyInput onKeySet={setApiKey} savedKey={apiKey} />
+              {/* Fork: Gemini key only feeds hidden tools (Clip Generator etc.) — hidden with them. */}
+              {/* <KeyInput onKeySet={setApiKey} savedKey={apiKey} /> */}
 
               <div className="card p-4 sm:p-6 mt-8">
                 <div className="flex flex-wrap items-center justify-between gap-2 mb-4">
@@ -1043,7 +1070,62 @@ function App() {
                     <div className="w-9 h-9 rounded-input bg-paper3 flex items-center justify-center shrink-0">
                       <Sparkles size={16} className="text-brass" />
                     </div>
-                    <h2 className="text-base font-medium text-ink lowercase">AI Shorts (UGC Videos)</h2>
+                    <h2 className="text-base font-medium text-ink">OpenRouter (AI Shorts scripts)</h2>
+                  </div>
+                  <span className="readout">BYOK</span>
+                </div>
+                <p className="text-xs text-muted mb-6 leading-relaxed">
+                  Product research, analysis and script writing for AI Shorts run through{' '}
+                  <strong>OpenRouter</strong>. One key, any model — leave the model empty to use
+                  the default.
+                </p>
+                <div className="space-y-4">
+                  <label className="block text-sm text-muted">OpenRouter API Key</label>
+                  <div className="flex flex-col sm:flex-row gap-2">
+                    <input
+                      type="password"
+                      value={openrouterKey}
+                      onChange={(e) => setOpenrouterKey(e.target.value)}
+                      className="input-field"
+                      placeholder="sk-or-..."
+                    />
+                    <button
+                      onClick={() => {
+                        if (openrouterKey) {
+                          localStorage.setItem('openrouterKey_v1', encrypt(openrouterKey));
+                          setOrSaved(true);
+                          setTimeout(() => setOrSaved(false), 2000);
+                        }
+                      }}
+                      className={orSaved ? 'badge-ok px-4' : 'btn-quiet py-2 px-4 text-sm'}
+                    >
+                      {orSaved ? <><Check size={12} /> saved</> : 'Save'}
+                    </button>
+                  </div>
+                  <label className="block text-sm text-muted">Text model</label>
+                  <input
+                    type="text"
+                    value={orTextModel}
+                    onChange={(e) => setOrTextModel(e.target.value)}
+                    className="input-field"
+                    placeholder="google/gemini-3.1-flash-lite (default)"
+                  />
+                  <p className="text-xs text-muted leading-relaxed">
+                    Any OpenRouter model id, e.g. <code>anthropic/claude-sonnet-5</code> or{' '}
+                    <code>google/gemini-3.1-flash-lite</code>. Get a key at{' '}
+                    <a href="https://openrouter.ai/keys" target="_blank" rel="noopener noreferrer" className="text-brass hover:text-ink">openrouter.ai/keys</a>.
+                    Keys are only stored in your browser.
+                  </p>
+                </div>
+              </div>
+
+              <div className="card p-4 sm:p-6 mt-8">
+                <div className="flex flex-wrap items-center justify-between gap-2 mb-4">
+                  <div className="flex items-center gap-3">
+                    <div className="w-9 h-9 rounded-input bg-paper3 flex items-center justify-center shrink-0">
+                      <Sparkles size={16} className="text-brass" />
+                    </div>
+                    <h2 className="text-base font-medium text-ink">AI Shorts (UGC Videos)</h2>
                   </div>
                   <span className="readout">BYOK</span>
                 </div>
@@ -1099,7 +1181,7 @@ function App() {
 
           {/* View: SaaS Shorts */}
           {activeTab === 'saasshorts' && (
-            <SaaShortsTab geminiApiKey={apiKey} elevenLabsKey={elevenLabsKey} falKey={falKey} uploadPostKey={uploadPostKey} uploadUserId={uploadUserId} managed={isManaged} />
+            <SaaShortsTab openrouterKey={openrouterKey} orTextModel={orTextModel} elevenLabsKey={elevenLabsKey} falKey={falKey} uploadPostKey={uploadPostKey} uploadUserId={uploadUserId} managed={isManaged} />
           )}
 
           {/* View: AI Agent */}

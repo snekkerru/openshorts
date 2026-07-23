@@ -97,6 +97,24 @@ async def resolve_gemini(request: Request) -> Optional[str]:
     return os.environ.get("GEMINI_API_KEY")
 
 
+async def resolve_openrouter(request: Request) -> Optional[str]:
+    """Resolve the OpenRouter API key (SaaSShorts text calls).
+
+    Same policy as ``resolve_gemini``: cloud is paid-only (managed key for
+    entitled users, header ignored); self-host is BYOK — ``X-OpenRouter-Key``
+    header wins, else the ``OPENROUTER_API_KEY`` env fallback.
+    """
+    if BILLING_ENABLED:
+        user = await _user_from_request(request)
+        if managed_keys.has_active_entitlement(user):
+            return managed_keys.openrouter_key()
+        return None
+    header = request.headers.get("X-OpenRouter-Key")
+    if header:
+        return header
+    return os.environ.get("OPENROUTER_API_KEY")
+
+
 async def resolve_upload_post(request: Request, body_key: Optional[str] = None):
     """Resolve the Upload-Post key and the profile to post as.
 
@@ -128,6 +146,16 @@ def gemini_missing_error():
             "message": "This action needs an active plan. Choose a plan or add your own API key.",
         })
     return HTTPException(status_code=400, detail="Missing X-Gemini-Key header")
+
+
+def openrouter_missing_error():
+    """4xx when no OpenRouter key could be resolved (mirrors gemini_missing_error)."""
+    if BILLING_ENABLED:
+        return HTTPException(status_code=402, detail={
+            "error": "no_plan",
+            "message": "This action needs an active plan. Choose a plan or add your own API key.",
+        })
+    return HTTPException(status_code=400, detail="Missing X-OpenRouter-Key header")
 
 
 # Probe rate limiter. In-memory, resets on restart by design — the hard monthly
@@ -2989,9 +3017,10 @@ async def saasshorts_analyze(
     request: Request,
 ):
     """Analyze a URL or manual description and generate video scripts."""
-    gemini_key = await resolve_gemini(request)
-    if not gemini_key:
-        raise gemini_missing_error()
+    openrouter_key = await resolve_openrouter(request)
+    if not openrouter_key:
+        raise openrouter_missing_error()
+    or_model = request.headers.get("X-OR-Text-Model") or None
 
     if not req.url and not req.description:
         raise HTTPException(status_code=400, detail="Provide a URL or a product description")
@@ -3009,8 +3038,8 @@ async def saasshorts_analyze(
             if req.url and req.url.strip():
                 # URL provided: full scrape + research pipeline
                 scraped = scrape_website(req.url)
-                web_research = research_saas_online(req.url, gemini_key)
-                analysis = analyze_saas(scraped, gemini_key, web_research=web_research)
+                web_research = research_saas_online(req.url, openrouter_key, model=or_model)
+                analysis = analyze_saas(scraped, openrouter_key, web_research=web_research, model=or_model)
             else:
                 # Manual description: build analysis from description
                 analysis = {
@@ -3023,7 +3052,7 @@ async def saasshorts_analyze(
                     "tone": "casual and authentic",
                 }
 
-            scripts = generate_scripts(analysis, gemini_key, req.num_scripts, req.style, req.language, req.actor_gender)
+            scripts = generate_scripts(analysis, openrouter_key, req.num_scripts, req.style, req.language, req.actor_gender, model=or_model)
             return {
                 "analysis": analysis,
                 "scripts": scripts,

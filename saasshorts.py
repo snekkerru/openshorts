@@ -39,25 +39,24 @@ DEFAULT_VOICES = {
 }
 
 
-GEMINI_MODEL = os.environ.get("GEMINI_MODEL_SAAS") or os.environ.get("GEMINI_MODEL") or "gemini-3.1-flash-lite"
+# Text calls go through OpenRouter (llm.py); model comes from the
+# X-OR-Text-Model header → OR_TEXT_MODEL env → llm.DEFAULT_TEXT_MODEL.
 
 
 # ═══════════════════════════════════════════════════════════════════════
 # Phase 1: Website Scraping, Web Research & Analysis
 # ═══════════════════════════════════════════════════════════════════════
 
-def research_saas_online(url: str, gemini_key: str) -> dict:
+def research_saas_online(url: str, openrouter_key: str, model: str = None) -> dict:
     """
-    Use Gemini with Google Search grounding to deeply research a SaaS product
+    Use an LLM with the OpenRouter web plugin to deeply research a SaaS product
     across the internet: reviews, Reddit threads, Twitter, competitor comparisons,
     pricing complaints, user testimonials, etc.
     """
-    from google import genai
-    from google.genai import types
+    import llm
 
-    print(f"[SaaSShorts] 🔍 Researching {url} across the web (Google Search grounding)...")
-
-    client = genai.Client(api_key=gemini_key)
+    model = model or llm.resolve_text_model()
+    print(f"[SaaSShorts] 🔍 Researching {url} across the web ({model} + web plugin)...")
 
     # Extract domain name for search queries
     domain = url.replace("https://", "").replace("http://", "").split("/")[0]
@@ -102,47 +101,26 @@ Return a comprehensive JSON research report:
 
 Be thorough. Use REAL data from your search results, not made-up information."""
 
-    response = client.models.generate_content(
-        model=GEMINI_MODEL,
-        contents=[prompt],
-        config=types.GenerateContentConfig(
-            tools=[types.Tool(google_search=types.GoogleSearch())],
-        ),
-    )
+    try:
+        research, meta = llm.chat_json(
+            prompt,
+            api_key=openrouter_key,
+            model=model,
+            plugins=[{"id": "web"}],
+        )
+    except llm.LLMError as e:
+        print(f"[SaaSShorts] ⚠️ Web research failed: {e}")
+        return {"raw_research": "", "product_name": domain, "grounding_sources": []}
 
-    # Extract grounding sources
+    # Extract web plugin citations (same shape the frontend renders)
     sources = []
-    try:
-        metadata = response.candidates[0].grounding_metadata
-        if metadata and metadata.grounding_chunks:
-            for chunk in metadata.grounding_chunks:
-                if chunk.web:
-                    sources.append({"title": chunk.web.title, "url": chunk.web.uri})
-        if metadata and metadata.web_search_queries:
-            print(f"[SaaSShorts]   Searches performed: {metadata.web_search_queries}")
-    except Exception:
-        pass
+    for ann in meta["annotations"]:
+        cite = ann.get("url_citation") if isinstance(ann, dict) else None
+        if cite and cite.get("url"):
+            sources.append({"title": cite.get("title") or cite["url"], "url": cite["url"]})
 
-    # Parse response text as JSON
-    raw = response.text
-    if not raw:
-        print("[SaaSShorts] ⚠️ Gemini returned empty response for web research")
-        return {"raw_research": "", "product_name": domain, "grounding_sources": sources}
-
-    text = raw.strip()
-    if text.startswith("```"):
-        text = re.sub(r"^```(?:json)?\n?", "", text)
-        text = re.sub(r"\n?```$", "", text)
-
-    start = text.find("{")
-    end = text.rfind("}")
-    if start != -1 and end != -1:
-        text = text[start : end + 1]
-
-    try:
-        research = json.loads(text)
-    except json.JSONDecodeError:
-        research = {"raw_research": text, "product_name": domain}
+    if not isinstance(research, dict):
+        research = {"raw_research": str(research), "product_name": domain}
 
     research["grounding_sources"] = sources
     print(f"[SaaSShorts] ✅ Web research complete: {len(sources)} sources found")
@@ -258,17 +236,15 @@ def scrape_website(url: str) -> dict:
     return result
 
 
-def analyze_saas(scraped_data: dict, gemini_key: str, web_research: dict = None) -> dict:
+def analyze_saas(scraped_data: dict, openrouter_key: str, web_research: dict = None, model: str = None) -> dict:
     """
     Deep analysis of a SaaS product combining website scraping + web research.
-    Uses Gemini 3 Flash for synthesis.
+    Synthesis via OpenRouter (model configurable in Settings).
     """
-    from google import genai
-    from google.genai import types
+    import llm
 
-    print(f"[SaaSShorts] 🧠 Analyzing {scraped_data['url']} (with web research)...")
-
-    client = genai.Client(api_key=gemini_key)
+    model = model or llm.resolve_text_model()
+    print(f"[SaaSShorts] 🧠 Analyzing {scraped_data['url']} (with web research, {model})...")
 
     # Build web research context
     research_context = ""
@@ -354,30 +330,12 @@ Return a JSON object:
 IMPORTANT: Use REAL pain points from user reviews when available. Real frustrations make the best UGC content.
 Include 5-8 pain points, 4-6 emotional hooks, and 4+ viral angles."""
 
-    response = client.models.generate_content(
-        model=GEMINI_MODEL,
-        contents=[prompt],
-        config=types.GenerateContentConfig(response_mime_type="application/json"),
-    )
-
-    raw = response.text
-    if not raw:
-        raise Exception("Gemini returned empty response for SaaS analysis")
-
-    text = raw.strip()
-    if text.startswith("```"):
-        text = re.sub(r"^```(?:json)?\n?", "", text)
-        text = re.sub(r"\n?```$", "", text)
-
-    start = text.find("{")
-    end = text.rfind("}")
-    if start != -1 and end != -1:
-        text = text[start : end + 1]
-
     try:
-        analysis = json.loads(text)
-    except json.JSONDecodeError as e:
-        raise Exception(f"Failed to parse analysis JSON: {e}\nRaw: {text[:500]}")
+        analysis, _meta = llm.chat_json(prompt, api_key=openrouter_key, model=model)
+    except llm.LLMError as e:
+        raise Exception(f"SaaS analysis failed: {e}")
+    if not isinstance(analysis, dict):
+        raise Exception(f"SaaS analysis returned non-object JSON: {str(analysis)[:200]}")
 
     # Attach web research sources for reference
     if web_research and web_research.get("grounding_sources"):
@@ -389,20 +347,19 @@ Include 5-8 pain points, 4-6 emotional hooks, and 4+ viral angles."""
 
 def generate_scripts(
     analysis: dict,
-    gemini_key: str,
+    openrouter_key: str,
     num_scripts: int = 3,
     style: str = "ugc",
     language: str = "en",
     actor_gender: str = "female",
+    model: str = None,
 ) -> list:
     """Generate video scripts based on SaaS analysis."""
-    from google import genai
-    from google.genai import types
+    import llm
 
+    model = model or llm.resolve_text_model()
     lang_name = "Spanish" if language == "es" else "English"
-    print(f"[SaaSShorts] 📝 Generating {num_scripts} scripts ({style}, {lang_name})...")
-
-    client = genai.Client(api_key=gemini_key)
+    print(f"[SaaSShorts] 📝 Generating {num_scripts} scripts ({style}, {lang_name}, {model})...")
 
     style_guide = {
         "ugc": "Natural, authentic UGC style. Person talking to camera like sharing a discovery with a friend. Casual, genuine.",
@@ -536,33 +493,16 @@ RULES:
 - Example female: "a 26 year old attractive european woman, light brown wavy hair, wearing a white tank top, natural minimal makeup, friendly face"
 - Example male: "a 29 year old european man, short dark hair, light stubble, wearing a navy t-shirt, smart casual look" """
 
-    response = client.models.generate_content(
-        model=GEMINI_MODEL,
-        contents=[prompt],
-        config=types.GenerateContentConfig(
-            response_mime_type="application/json",
-            max_output_tokens=8192,
-        ),
-    )
-
-    raw = response.text
-    if not raw:
-        raise Exception("Gemini returned empty response for script generation")
-
-    text = raw.strip()
-    if text.startswith("```"):
-        text = re.sub(r"^```(?:json)?\n?", "", text)
-        text = re.sub(r"\n?```$", "", text)
-
-    start = text.find("[")
-    end = text.rfind("]")
-    if start != -1 and end != -1:
-        text = text[start : end + 1]
-
     try:
-        scripts = json.loads(text)
-    except json.JSONDecodeError as e:
-        raise Exception(f"Failed to parse scripts JSON: {e}\nRaw: {text[:500]}")
+        scripts, _meta = llm.chat_json(
+            prompt, api_key=openrouter_key, model=model, max_output_tokens=8192)
+    except llm.LLMError as e:
+        raise Exception(f"Script generation failed: {e}")
+    if isinstance(scripts, dict):
+        # Some models wrap the array in an object — accept the common shapes.
+        scripts = scripts.get("scripts") or scripts.get("data") or [scripts]
+    if not isinstance(scripts, list):
+        raise Exception(f"Scripts response is not a list: {str(scripts)[:200]}")
 
     print(f"[SaaSShorts] ✅ Generated {len(scripts)} scripts")
     return scripts
