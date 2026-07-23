@@ -135,10 +135,16 @@ export default function SaaShortsTab({ openrouterKey, orTextModel, elevenLabsKey
     const genderDefaults = {
       'en-female': '21m00Tcm4TlvDq8ikWAM',  // Rachel
       'en-male': '29vD33N1CtxCmqQRPOHJ',    // Drew
-      // eleven_multilingual_v2 speaks Russian with any voice; same defaults
-      'ru-female': '21m00Tcm4TlvDq8ikWAM',  // Rachel
-      'ru-male': '29vD33N1CtxCmqQRPOHJ',    // Drew
+      // Native Russian voices from the user's ElevenLabs library
+      'ru-female': 'D5RRIJYa9pFwxiSpbGbR',
+      'ru-male': 'M1CSR3PJBsfWU6ZquG3C',
     };
+    // Russian: always start from the known-good native voices — the fetched
+    // library's gender labels would otherwise pick an English premade first.
+    if (language === 'ru') {
+      setSelectedVoice(genderDefaults[`ru-${actorGender}`] || genderDefaults['ru-female']);
+      return;
+    }
     // If we have fetched voices, pick the first matching one; otherwise use hardcoded default
     const matchingVoice = voices.find(v => (v.labels?.gender || '').toLowerCase() === actorGender);
     if (matchingVoice) {
@@ -882,12 +888,11 @@ export default function SaaShortsTab({ openrouterKey, orTextModel, elevenLabsKey
                       { id: 'yoZ06aMxZJJ28mfd3POQ', name: 'Sam (raspy)' },
                     ],
                     'ru-female': [
-                      { id: '21m00Tcm4TlvDq8ikWAM', name: 'Rachel (спокойная)' },
-                      { id: 'EXAVITQu4vr4xnSDxMaL', name: 'Bella (мягкая)' },
+                      { id: 'D5RRIJYa9pFwxiSpbGbR', name: 'Русский женский' },
                     ],
                     'ru-male': [
-                      { id: '29vD33N1CtxCmqQRPOHJ', name: 'Drew (уверенный)' },
-                      { id: 'ErXwobaYiN019PkySvjV', name: 'Antoni (тёплый)' },
+                      { id: 'M1CSR3PJBsfWU6ZquG3C', name: 'Русский мужской 1' },
+                      { id: 'vpUqfpCIn34tjFW4KHjt', name: 'Русский мужской 2' },
                     ],
                   };
                   const key = `${language}-${actorGender}`;
