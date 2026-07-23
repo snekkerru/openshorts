@@ -5,7 +5,11 @@ subsystem because the classifier read the tail of the log instead of the error:
 a Gemini blip was reported as "ffmpeg/render" and a silent upload as a broken
 download path.
 """
-import app
+import pytest
+
+# app pulls in dotenv/fastapi/cloud at import time; the minimal CI env lacks
+# them, so skip there. Runs fully in the container/local where deps exist.
+app = pytest.importorskip("app")
 from cloud.alerts import _classify_failure
 
 

@@ -7,7 +7,9 @@ loop and kill the job on the first blip.
 import types
 import pytest
 
-import main
+# main pulls in cv2/torch/mediapipe at import time; the minimal CI env lacks
+# them, so skip there. Runs fully in the container/local where deps exist.
+main = pytest.importorskip("main")
 
 
 class _FakeResponse:
