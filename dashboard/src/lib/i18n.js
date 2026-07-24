@@ -178,6 +178,20 @@ export const RU = {
   'Create fal.ai account': 'Создать аккаунт fal.ai',
   'Keys are only stored in your browser. They are sent to the backend only to process your request, never stored server-side.': 'Ключи хранятся только в браузере. Отправляются на бэкенд лишь для обработки запроса и не сохраняются на сервере.',
   'Keys are only stored in your browser. Sent to backend only to process requests.': 'Ключи хранятся только в браузере. Отправляются на бэкенд лишь для обработки запросов.',
+
+  // ── My Generations ──
+  'My Generations': 'Мои генерации',
+  'No generations yet': 'Пока нет генераций',
+  'Generate your first video in AI Shorts.': 'Создайте первое видео в разделе AI Shorts.',
+  'in progress': 'в процессе',
+  'done': 'готово',
+  'error': 'ошибка',
+  'interrupted': 'прервана',
+  'Open': 'Открыть',
+  'Delete': 'Удалить',
+  'Delete this generation?': 'Удалить эту генерацию?',
+  'Cost': 'Стоимость',
+  'Close': 'Закрыть',
 };
 
 export const DICTS = { ru: RU };

@@ -7,6 +7,7 @@ import ProcessingAnimation from './components/ProcessingAnimation';
 // import Gallery from './components/Gallery';
 import ThumbnailStudio from './components/ThumbnailStudio';
 import SaaShortsTab from './components/SaaShortsTab';
+import MyGenerationsTab from './components/MyGenerationsTab';
 import UGCGallery from './components/UGCGallery';
 import ScheduleWeekModal from './components/ScheduleWeekModal';
 import UsageMeter from './components/UsageMeter';
@@ -406,7 +407,7 @@ function App() {
         if (session.noSource) setNoSource(true);
         if (session.projectState) setProjectState(session.projectState);
         // Only restore tabs that are still exposed in this fork's nav.
-        if (['saasshorts', 'settings'].includes(session.activeTab)) setActiveTab(session.activeTab);
+        if (['saasshorts', 'my-generations', 'settings'].includes(session.activeTab)) setActiveTab(session.activeTab);
         // If was processing, resume polling; if complete/error, just show results
         setStatus(session.status === 'processing' ? 'processing' : session.status);
         setSessionRecovered(true);
@@ -729,7 +730,8 @@ function App() {
       // { id: 'ugc-gallery', ord: '04', icon: LayoutGrid, label: 'UGC Gallery' },
       // { id: 'thumbnails', ord: '05', icon: Image, label: 'YouTube Studio' },
       // ...(billingEnabled && isSignedIn ? [{ id: 'history', ord: '06', icon: History, label: 'History' }] : []),
-      { id: 'settings', ord: '02', icon: Settings, label: 'Settings' },
+      { id: 'my-generations', ord: '02', icon: History, label: 'My Generations' },
+      { id: 'settings', ord: '03', icon: Settings, label: 'Settings' },
     ];
 
     return (
@@ -1275,6 +1277,20 @@ function App() {
           {/* View: SaaS Shorts */}
           {activeTab === 'saasshorts' && (
             <SaaShortsTab openrouterKey={openrouterKey} orTextModel={orTextModel} elevenLabsKey={elevenLabsKey} falKey={falKey} falImageModel={falImageModel} falImageQuality={falImageQuality} falImageAspect={falImageAspect} falImageResolution={falImageResolution} uploadPostKey={uploadPostKey} uploadUserId={uploadUserId} managed={isManaged} />
+          )}
+
+          {/* View: My Generations */}
+          {activeTab === 'my-generations' && (
+            <MyGenerationsTab
+              falKey={falKey}
+              elevenLabsKey={elevenLabsKey}
+              falImageHeaders={{
+                ...(falImageModel ? { 'X-Fal-Image-Model': falImageModel } : {}),
+                ...(falImageModel === 'openai/gpt-image-2' && falImageQuality ? { 'X-Fal-Image-Quality': falImageQuality } : {}),
+                ...(falImageModel === 'fal-ai/nano-banana-2' && falImageAspect ? { 'X-Fal-Image-Aspect': falImageAspect } : {}),
+                ...(falImageModel === 'fal-ai/nano-banana-2' && falImageResolution ? { 'X-Fal-Image-Resolution': falImageResolution } : {}),
+              }}
+            />
           )}
 
           {/* View: AI Agent */}
