@@ -192,6 +192,9 @@ export const RU = {
   'Delete this generation?': 'Удалить эту генерацию?',
   'Cost': 'Стоимость',
   'Close': 'Закрыть',
+  'Could not delete this generation.': 'Не удалось удалить эту генерацию.',
+  'Could not start regeneration.': 'Не удалось запустить повтор.',
+  'Quota exceeded — check your plan in AI Shorts.': 'Лимит исчерпан — проверьте тариф в AI Shorts.',
 };
 
 export const DICTS = { ru: RU };

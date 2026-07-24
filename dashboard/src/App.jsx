@@ -935,7 +935,7 @@ function App() {
             <div className="h-full overflow-y-auto p-4 sm:p-8 max-w-2xl mx-auto animate-fade">
               <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-4 mb-8">
                 <div>
-                  <p className="eyebrow mb-1.5">02 · {t('SETTINGS')}</p>
+                  <p className="eyebrow mb-1.5">03 · {t('SETTINGS')}</p>
                   <h1 className="font-display text-2xl text-ink">{t('Settings')}</h1>
                 </div>
                 <div className="flex items-center gap-2 text-xs text-muted mt-1">

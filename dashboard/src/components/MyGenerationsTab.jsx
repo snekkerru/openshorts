@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { Loader2, Play, Download, Trash2, RefreshCw, AlertCircle, X, Copy, Check } from 'lucide-react';
-import { apiFetch } from '../lib/api';
+import { apiFetch, QuotaError } from '../lib/api';
 import { useI18n } from '../contexts/I18nContext';
 
 const STATUS_META = {
@@ -15,6 +15,7 @@ export default function MyGenerationsTab({ falKey, elevenLabsKey, falImageHeader
   const [items, setItems] = useState([]);
   const [loading, setLoading] = useState(true);
   const [viewing, setViewing] = useState(null); // record for the viewer modal
+  const [actionError, setActionError] = useState('');
   const timer = useRef(null);
 
   const load = useCallback(async () => {
@@ -38,25 +39,54 @@ export default function MyGenerationsTab({ falKey, elevenLabsKey, falImageHeader
 
   const remove = async (jobId) => {
     if (!window.confirm(t('Delete this generation?'))) return;
-    await apiFetch(`/api/saasshorts/my-generations/${jobId}`, { method: 'DELETE' });
-    setItems((prev) => prev.filter((r) => r.job_id !== jobId));
+    setActionError('');
+    try {
+      const res = await apiFetch(`/api/saasshorts/my-generations/${jobId}`, { method: 'DELETE' });
+      if (res.ok) {
+        setItems((prev) => prev.filter((r) => r.job_id !== jobId));
+      } else {
+        setActionError(t('Could not delete this generation.'));
+      }
+    } catch {
+      setActionError(t('Could not delete this generation.'));
+    }
   };
 
   const retry = async (rec) => {
     // rec.script is the full original script (segments, actor_description, …).
-    await apiFetch('/api/saasshorts/generate', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json', 'X-Fal-Key': falKey, 'X-ElevenLabs-Key': elevenLabsKey, ...falImageHeaders },
-      body: JSON.stringify({ script: rec.script || rec, video_mode: rec.video_mode, retry_job_id: rec.job_id }),
-    });
-    load();
+    setActionError('');
+    try {
+      const res = await apiFetch('/api/saasshorts/generate', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'X-Fal-Key': falKey, 'X-ElevenLabs-Key': elevenLabsKey, ...falImageHeaders },
+        body: JSON.stringify({ script: rec.script || rec, video_mode: rec.video_mode, retry_job_id: rec.job_id }),
+      });
+      if (res.ok) {
+        load();
+      } else {
+        setActionError(t('Could not start regeneration.'));
+      }
+    } catch (err) {
+      if (err instanceof QuotaError) {
+        setActionError(t('Quota exceeded — check your plan in AI Shorts.'));
+      } else {
+        setActionError(String(err?.message || err));
+      }
+    }
   };
 
   return (
     <div className="h-full overflow-y-auto custom-scrollbar p-4 sm:p-6 md:p-10 animate-fade">
       <div className="max-w-5xl mx-auto">
-        <p className="eyebrow mb-1.5">03 · {t('My Generations')}</p>
+        <p className="eyebrow mb-1.5">02 · {t('My Generations')}</p>
         <h1 className="font-display text-2xl md:text-3xl text-ink mb-6">{t('My Generations')}</h1>
+
+        {actionError && (
+          <div className="flex items-center justify-between gap-2 text-xs text-danger mb-4">
+            <span className="flex items-center gap-1"><AlertCircle size={12} className="shrink-0" />{actionError}</span>
+            <button onClick={() => setActionError('')} className="btn-quiet py-1 px-2">×</button>
+          </div>
+        )}
 
         {loading ? (
           <div className="flex items-center gap-2 text-muted text-sm"><Loader2 size={16} className="animate-spin" /> …</div>
