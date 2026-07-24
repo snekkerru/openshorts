@@ -95,7 +95,6 @@ export default function SaaShortsTab({ openrouterKey, orTextModel, elevenLabsKey
   const [selectedScript, setSelectedScript] = useState(0);
 
   // Step 2: Configure
-  const [shareToGallery, setShareToGallery] = useState(false);
   const [voices, setVoices] = useState([]);
   const [selectedVoice, setSelectedVoice] = useState('21m00Tcm4TlvDq8ikWAM');
   const [actorDescription, setActorDescription] = useState('');
@@ -365,7 +364,7 @@ export default function SaaShortsTab({ openrouterKey, orTextModel, elevenLabsKey
           actor_description: actorDescription || undefined,
           selected_actor_url: selectedActor || undefined,
           video_mode: videoMode,
-          share_to_gallery: shareToGallery,
+          share_to_gallery: false,
         }),
       });
 
@@ -413,7 +412,7 @@ export default function SaaShortsTab({ openrouterKey, orTextModel, elevenLabsKey
           actor_description: actorDescription || undefined,
           retry_job_id: jobId,
           video_mode: videoMode,
-          share_to_gallery: shareToGallery,
+          share_to_gallery: false,
         }),
       });
 
@@ -1303,20 +1302,6 @@ export default function SaaShortsTab({ openrouterKey, orTextModel, elevenLabsKey
                 </div>
               )}
 
-              <label className="flex items-start gap-2 text-sm text-ink cursor-pointer">
-                <input
-                  type="checkbox"
-                  checked={shareToGallery}
-                  onChange={(e) => setShareToGallery(e.target.checked)}
-                  className="mt-0.5 accent-brass"
-                />
-                <span>
-                  Share this video in the public gallery
-                  <span className="block text-xs text-muted">
-                    Your video, product name and script will be visible at openshorts.app/gallery
-                  </span>
-                </span>
-              </label>
             </div>
 
             <div className="flex justify-between">

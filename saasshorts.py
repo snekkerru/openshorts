@@ -893,6 +893,9 @@ def generate_talking_head(
     image_url = _fal_upload_file(image_path, fal_key)
     audio_url = _fal_upload_file(audio_path, fal_key)
 
+    # Pro is markedly slower than Standard; give it a longer poll window so
+    # fal jobs that are still IN_PROGRESS aren't abandoned at 600s.
+    poll_timeout = 1200 if tier == "pro" else 900
     result = _fal_run(
         model_id,
         {
@@ -906,7 +909,7 @@ def generate_talking_head(
             ),
         },
         fal_key,
-        timeout=600,
+        timeout=poll_timeout,
     )
 
     video_url = result["video"]["url"]
