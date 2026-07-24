@@ -195,6 +195,23 @@ export const RU = {
   'Could not delete this generation.': 'Не удалось удалить эту генерацию.',
   'Could not start regeneration.': 'Не удалось запустить повтор.',
   'Quota exceeded — check your plan in AI Shorts.': 'Лимит исчерпан — проверьте тариф в AI Shorts.',
+
+  // ── B-roll timeline + per-slot editor ──
+  'Timeline': 'Таймлайн',
+  'Video': 'Видео',
+  'Voice': 'Голос',
+  'Voiceover — continuous': 'Закадровый голос — непрерывно',
+  'Head': 'Голова',
+  'AI b-roll': 'AI b-roll',
+  'My photo': 'Моё фото',
+  'My video': 'Моё видео',
+  'B-roll slot': 'B-roll слот',
+  'AI': 'AI',
+  'Describe the b-roll visual...': 'Опишите визуал b-roll...',
+  'Uploading...': 'Загрузка...',
+  'Mute video audio (keep voiceover only)': 'Заглушить звук видео (оставить только закадровый голос)',
+  'Start': 'Начало',
+  'End': 'Конец',
 };
 
 export const DICTS = { ru: RU };

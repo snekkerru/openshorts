@@ -5,6 +5,8 @@ import { apiFetch } from '../lib/api';
 import StepIndicator from './ui/StepIndicator';
 import SegmentedControl from './ui/SegmentedControl';
 import StarBanner from './StarBanner';
+import BrollTimeline from './BrollTimeline';
+import BrollSlotEditor from './BrollSlotEditor';
 import { useI18n } from '../contexts/I18nContext';
 
 const STYLE_OPTIONS = [
@@ -298,6 +300,21 @@ export default function SaaShortsTab({ openrouterKey, orTextModel, elevenLabsKey
   // ── Inline script editing (selection step) ──
   const [editingScript, setEditingScript] = useState(null); // script index or null
   const [draftScript, setDraftScript] = useState(null);     // deep copy under edit
+
+  // ── B-roll slot editing (configure step) ──
+  const [activeSlot, setActiveSlot] = useState(null); // { scriptIdx, segIdx } or null
+
+  const patchSegment = (scriptIdx, segIdx, patch) => {
+    setScripts((prev) => {
+      const next = prev.map((s, i) => {
+        if (i !== scriptIdx) return s;
+        const segments = s.segments.map((seg, j) => (j === segIdx ? { ...seg, ...patch } : seg));
+        return { ...s, segments };
+      });
+      saveCache(url.trim(), analysis, webResearch, next, { language, actorGender, style });
+      return next;
+    });
+  };
 
   const handleStartScriptEdit = (idx) => {
     setEditingScript(idx);
@@ -931,6 +948,26 @@ export default function SaaShortsTab({ openrouterKey, orTextModel, elevenLabsKey
               <p className="text-sm lowercase text-muted">
                 script: <strong className="text-ink2 normal-case font-medium">{scripts[selectedScript].title}</strong>
               </p>
+
+              {/* B-roll timeline + per-slot editor */}
+              <div>
+                <label className="eyebrow block mb-2">{t('Timeline')}</label>
+                <BrollTimeline
+                  script={scripts[selectedScript]}
+                  t={t}
+                  activeSeg={activeSlot?.scriptIdx === selectedScript ? activeSlot.segIdx : null}
+                  onSlotClick={(segIdx) => setActiveSlot({ scriptIdx: selectedScript, segIdx })}
+                />
+                {activeSlot && activeSlot.scriptIdx === selectedScript
+                  && scripts[selectedScript]?.segments?.[activeSlot.segIdx] && (
+                  <BrollSlotEditor
+                    segment={scripts[selectedScript].segments[activeSlot.segIdx]}
+                    t={t}
+                    onChange={(patch) => patchSegment(selectedScript, activeSlot.segIdx, patch)}
+                    onClose={() => setActiveSlot(null)}
+                  />
+                )}
+              </div>
 
               {/* Voice Selection */}
               <div>
