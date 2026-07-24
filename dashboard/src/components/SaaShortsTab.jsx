@@ -17,6 +17,10 @@ const STYLE_OPTIONS = [
 
 const STEPS = ['Setup', 'Analysis', 'Configure', 'Generate', 'Result'];
 
+// Editable default for the "Scene & style" field. Sent to the backend as
+// `actor_scene`; mirrors DEFAULT_ACTOR_SCENE in saasshorts.py.
+const DEFAULT_ACTOR_SCENE = 'in a cozy home mini-studio, a soft budget key light directed at the face, a subtle warm accent light glowing on the background behind, natural lived-in apartment interior, relaxed and authentic UGC creator vibe';
+
 const CACHE_KEY = 'saasshorts_cache';
 const CACHE_MAX_AGE = 24 * 60 * 60 * 1000; // 24 hours
 
@@ -95,6 +99,7 @@ export default function SaaShortsTab({ openrouterKey, orTextModel, elevenLabsKey
   const [voices, setVoices] = useState([]);
   const [selectedVoice, setSelectedVoice] = useState('21m00Tcm4TlvDq8ikWAM');
   const [actorDescription, setActorDescription] = useState('');
+  const [actorScene, setActorScene] = useState(DEFAULT_ACTOR_SCENE);
   const [editedNarration, setEditedNarration] = useState('');
   const [actorOptions, setActorOptions] = useState([]);
   const [selectedActor, setSelectedActor] = useState(null);
@@ -1134,6 +1139,14 @@ export default function SaaShortsTab({ openrouterKey, orTextModel, elevenLabsKey
                   placeholder="e.g. A young woman in her late 20s, dark hair, casual outfit..."
                 />
 
+                <p className="text-xs lowercase text-muted mt-2 mb-2">Scene & style</p>
+                <textarea
+                  value={actorScene}
+                  onChange={(e) => { setActorScene(e.target.value); setActorOptions([]); }}
+                  rows={3}
+                  className="input-field resize-none text-sm"
+                  placeholder={DEFAULT_ACTOR_SCENE}
+                />
 
                 <button
                   onClick={async () => {
@@ -1146,7 +1159,7 @@ export default function SaaShortsTab({ openrouterKey, orTextModel, elevenLabsKey
                       const res = await apiFetch('/api/saasshorts/actor-options', {
                         method: 'POST',
                         headers: { 'Content-Type': 'application/json', 'X-Fal-Key': falKey, ...falImageHeaders },
-                        body: JSON.stringify({ actor_description: actorDescription, num_options: 3 }),
+                        body: JSON.stringify({ actor_description: actorDescription, actor_scene: actorScene || undefined, num_options: 3 }),
                       });
                       const data = await res.json().catch(() => ({}));
                       if (res.ok) {

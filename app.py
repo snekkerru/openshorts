@@ -3090,6 +3090,7 @@ class SaaSActorRequest(BaseModel):
     actor_description: str
     num_options: int = 3
     product_description: Optional[str] = None
+    actor_scene: Optional[str] = None
 
 
 @app.post("/api/saasshorts/actor-upload")
@@ -3162,6 +3163,7 @@ async def saasshorts_actor_options(
                 product_description=req.product_description,
                 image_model=x_fal_image_model,
                 image_opts=image_opts,
+                scene=req.actor_scene,
             ),
         )
 

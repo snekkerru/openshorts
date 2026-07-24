@@ -707,14 +707,27 @@ def _fal_upload_file(file_path: str, fal_key: str) -> str:
     return file_url
 
 
+# Default scene/style appended after the actor's physical appearance. Editable
+# from the UI ("Scene & style" field) which sends an override via `scene`; this
+# constant is the fallback for direct API calls and the final-video pipeline.
+DEFAULT_ACTOR_SCENE = (
+    "in a cozy home mini-studio, a soft budget key light directed at the face, "
+    "a subtle warm accent light glowing on the background behind, natural "
+    "lived-in apartment interior, relaxed and authentic UGC creator vibe"
+)
+
+
 def generate_actor_images(
     description: str, fal_key: str, output_dir: str, title_slug: str, num_options: int = 3,
     product_description: str = None, image_model: str = None, image_opts: dict = None,
+    scene: str = None,
 ) -> List[str]:
     """Generate multiple hyper-realistic actor portrait options.
 
     image_model: fal.ai image endpoint (default fal-ai/flux-2-pro).
     image_opts: model-specific params (quality / aspect_ratio / resolution).
+    scene: scene/style clause appended after the appearance (defaults to
+        DEFAULT_ACTOR_SCENE when not provided).
     """
     model_id = resolve_image_model(image_model)
     print(f"[SaaSShorts] 🎨 Generating {num_options} actor image options ({model_id})...")
@@ -729,13 +742,15 @@ def generate_actor_images(
 
     import random
 
+    scene_clause = (scene or "").strip() or DEFAULT_ACTOR_SCENE
+
     def _prompt():
         # Fresh IMG_ number per option so models without a seed param still
         # produce distinct actors across the parallel calls.
         img_num = random.randint(1000, 9999)
         if product_description:
-            return f"""IMG_{img_num}.jpg Raw candid selfie of {clean_desc}, casually holding {product_description}, showing it to the camera with a natural smile. Product clearly visible in hand. Casual and real, not an ad. Low quality front camera, soft room lighting. Reddit selfie."""
-        return f"""IMG_{img_num}.jpg Raw candid selfie of {clean_desc}, sitting at their desk at home, looking at camera with a relaxed natural smile. Headphones around neck, monitor glow behind them. Not posed, casual and real. Low quality front camera, soft room lighting. Reddit selfie."""
+            return f"""IMG_{img_num}.jpg {clean_desc}, casually holding {product_description} and showing it to the camera, {scene_clause}."""
+        return f"""IMG_{img_num}.jpg {clean_desc}, {scene_clause}."""
 
     print(f"[SaaSShorts]   Actor: {clean_desc[:80]}...{' (with product)' if product_description else ''}")
 
