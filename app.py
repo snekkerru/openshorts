@@ -3541,6 +3541,23 @@ async def saasshorts_generate(
                 "result": None,
                 "output_dir": job_output_dir,
             }
+        elif old_dir:
+            # Disk cache was swept (>1h retention) but the caller is retrying a
+            # still-listed history entry. Reuse the same job_id so the retry
+            # overwrites its my-generations/{owner}/{job_id} record in place
+            # instead of orphaning it as a duplicate card. No cached assets
+            # remain — regenerate from the stored script into a fresh dir.
+            job_id = req.retry_job_id
+            job_output_dir = old_dir
+            os.makedirs(job_output_dir, exist_ok=True)
+            reused = True
+            saas_jobs[job_id] = {
+                "user_id": await _owner_id(request),
+                "status": "processing",
+                "logs": [f"Retrying job {job_id[:8]}... regenerating from saved script."],
+                "result": None,
+                "output_dir": job_output_dir,
+            }
 
     if not reused:
         job_id = str(uuid.uuid4())
@@ -3708,6 +3725,7 @@ async def saasshorts_status(job_id: str, request: Request):
 @app.get("/api/saasshorts/my-generations")
 async def saasshorts_my_generations(request: Request):
     """List the caller's video generations (S3 history merged with live jobs)."""
+    await require_managed_entitlement(request)
     owner = await _history_owner(request)
     records = list_my_generations(owner)
     belongs = _job_belongs_factory(await _owner_id(request))
@@ -3717,6 +3735,7 @@ async def saasshorts_my_generations(request: Request):
 
 @app.delete("/api/saasshorts/my-generations/{job_id}")
 async def saasshorts_delete_generation(job_id: str, request: Request):
+    await require_managed_entitlement(request)
     owner = await _history_owner(request)
     ok = delete_my_generation(owner, job_id)
     # Drop from live memory too, if the caller owns it.
