@@ -298,6 +298,13 @@ def list_actor_gallery():
         images.sort(key=lambda x: x['created_at'], reverse=True)
         return images
 
+    except ClientError as e:
+        # An unconfigured/placeholder public bucket is a benign "no gallery"
+        # state, not an error — don't spam logs on every poll.
+        if e.response.get("Error", {}).get("Code") == "NoSuchBucket":
+            return []
+        logger.error(f"Failed to list actor gallery: {e}")
+        return []
     except Exception as e:
         logger.error(f"Failed to list actor gallery: {e}")
         return []
@@ -419,6 +426,12 @@ def list_video_gallery(limit=50, force_refresh=False):
                 logger.error(f"Error reading metadata {meta_obj['Key']}: {e}")
                 continue
 
+    except ClientError as e:
+        # Unconfigured/placeholder public bucket → benign empty gallery.
+        if e.response.get("Error", {}).get("Code") == "NoSuchBucket":
+            return []
+        logger.error(f"Failed to list video gallery: {e}")
+        return []
     except Exception as e:
         logger.error(f"Failed to list video gallery: {e}")
         return []
