@@ -560,6 +560,33 @@ RULES:
 # Phase 2: Asset Generation
 # ═══════════════════════════════════════════════════════════════════════
 
+def _parse_fal_error(exc: Exception) -> dict:
+    """Turn a _fal_run exception into {code, message} for the UI.
+
+    _fal_run raises text like ``fal.ai error (422): {"detail":"..."}`` or
+    ``fal.ai job FAILED: {...}``. Pull out the HTTP code and a human message
+    (the provider's ``detail`` field when present).
+    """
+    text = str(exc)
+    code = None
+    m = re.search(r"\((\d{3})\)", text)
+    if m:
+        code = int(m.group(1))
+    message = text
+    brace = text.find("{")
+    if brace != -1:
+        try:
+            payload = json.loads(text[brace:])
+            detail = payload.get("detail") if isinstance(payload, dict) else None
+            if isinstance(detail, list) and detail:
+                detail = detail[0].get("msg") or detail[0]
+            if detail:
+                message = detail if isinstance(detail, str) else json.dumps(detail)
+        except (json.JSONDecodeError, AttributeError, TypeError):
+            pass
+    return {"code": code, "message": message[:300]}
+
+
 def _fal_run(model_id: str, input_data: dict, fal_key: str, timeout: int = 600) -> dict:
     """
     Submit a job to fal.ai queue, poll for completion, return result.
@@ -732,24 +759,22 @@ def generate_actor_images(
         print(f"[SaaSShorts] ✅ Actor option {i+1}: {img_path}")
         return img_path
 
+    # Collect successes; a per-option failure (e.g. gpt-image-2's 422 content
+    # moderation) must NOT sink the whole batch — surface it instead so the UI
+    # can show the actors that did render plus the errors that didn't.
+    errors = []
     with ThreadPoolExecutor(max_workers=num_options) as executor:
-        futures = [executor.submit(_gen_one, i) for i in range(num_options)]
+        futures = {executor.submit(_gen_one, i): i for i in range(num_options)}
         for future in as_completed(futures):
-            paths.append(future.result())
+            i = futures[future]
+            try:
+                paths.append(future.result())
+            except Exception as e:  # noqa: BLE001 — one option failing is expected
+                err = _parse_fal_error(e)
+                print(f"[SaaSShorts] ⚠️ Actor option {i+1} failed ({err['code']}): {err['message']}")
+                errors.append({"index": i, **err})
 
-    return sorted(paths)
-
-    paths = []
-    for i, img in enumerate(result.get("images", [])):
-        img_path = os.path.join(output_dir, f"{title_slug}_actor_option_{i}.png")
-        with httpx.Client(timeout=60.0) as client:
-            img_resp = client.get(img["url"])
-            with open(img_path, "wb") as f:
-                f.write(img_resp.content)
-        paths.append(img_path)
-        print(f"[SaaSShorts] ✅ Actor option {i+1}: {img_path}")
-
-    return paths
+    return sorted(paths), errors
 
 
 def generate_actor_image(
@@ -758,10 +783,12 @@ def generate_actor_image(
     """Generate a single actor image (fal.ai, model configurable in Settings)."""
     output_dir = os.path.dirname(output_path)
     title_slug = os.path.basename(output_path).replace("_actor.png", "")
-    paths = generate_actor_images(description, fal_key, output_dir, title_slug, num_options=1, image_model=image_model, image_opts=image_opts)
-    if paths:
-        import shutil
-        shutil.move(paths[0], output_path)
+    paths, errors = generate_actor_images(description, fal_key, output_dir, title_slug, num_options=1, image_model=image_model, image_opts=image_opts)
+    if not paths:
+        detail = errors[0]["message"] if errors else "no image returned"
+        raise Exception(f"Actor image generation failed: {detail}")
+    import shutil
+    shutil.move(paths[0], output_path)
     return output_path
 
 

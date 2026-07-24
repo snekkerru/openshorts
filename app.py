@@ -3154,7 +3154,7 @@ async def saasshorts_actor_options(
 
         loop = asyncio.get_running_loop()
         import functools
-        paths = await loop.run_in_executor(
+        paths, errors = await loop.run_in_executor(
             None,
             functools.partial(
                 generate_actor_images,
@@ -3178,8 +3178,15 @@ async def saasshorts_actor_options(
                 # Fallback to local URL if S3 fails
                 urls.append(f"/videos/saas_actors_{job_id}/{os.path.basename(p)}")
 
-        return {"images": urls}
+        # Partial success is OK: return whatever rendered plus per-option errors.
+        # Only 502 when every option failed so the user still sees why.
+        if not urls and errors:
+            raise HTTPException(status_code=502, detail={"error": "all_failed", "errors": errors})
 
+        return {"images": urls, "errors": errors}
+
+    except HTTPException:
+        raise
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
