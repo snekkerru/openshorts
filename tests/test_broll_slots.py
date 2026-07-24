@@ -116,3 +116,22 @@ class TestCompositeFilter:
         assert "amix=inputs=2" in f
         assert "[1:a]atrim=start=0:end=4.000" in f
         assert "[0:a]atrim=start=5.000:end=9.000" in f
+
+
+from saasshorts import count_ai_broll
+
+
+class TestCountAiBroll:
+    def test_counts_only_ai_rendered_clips(self):
+        segments = [
+            {"visual": "broll", "broll_prompt": "x", "start": 5, "end": 9, "broll_source": "ai"},
+            {"visual": "broll", "broll_prompt": "y", "start": 16, "end": 21,
+             "broll_source": "video", "broll_asset_path": "/a.mp4"},
+        ]
+        broll_clips = [{"path": "/b0.mp4"}, {"path": "/b1.mp4"}]  # both rendered
+        assert count_ai_broll(broll_clips, segments) == 1
+
+    def test_zero_when_all_user_assets(self):
+        segments = [{"visual": "broll", "start": 5, "end": 9, "broll_source": "image",
+                     "broll_asset_path": "/a.png"}]
+        assert count_ai_broll([{"path": "/b0.mp4"}], segments) == 0

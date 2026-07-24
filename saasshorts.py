@@ -1036,6 +1036,16 @@ def classify_broll_slot(seg: dict) -> dict:
     }
 
 
+def count_ai_broll(broll_clips: list, segments: list) -> int:
+    """How many rendered b-roll clips came from AI generation (billable)."""
+    ai_slots = sum(
+        1 for seg in segments
+        if seg.get("visual") == "broll" and (seg.get("broll_prompt") or seg.get("broll_asset_path"))
+        and classify_broll_slot(seg)["source"] == "ai"
+    )
+    return min(len(broll_clips), ai_slots)
+
+
 def build_ken_burns_cmd(img_path: str, output_path: str, dur_secs: int) -> list:
     """Build the FFmpeg command that turns a still image into a Ken Burns clip."""
     fps = 30
@@ -1600,13 +1610,14 @@ def generate_full_video(
 
     # Cost estimate
     audio_duration = _get_media_duration(audio_path)
+    ai_broll_n = count_ai_broll(broll_clips, script.get("segments", []))
     if video_mode == "lowcost":
         cost = {
             "actor_image_flux": 0.05,
             "voiceover_elevenlabs": round(len(full_narration) * 0.00003, 3),
             "hailuo_img2video": 0.19,
             "veed_lipsync": 0.20,
-            "broll_flux": round(len(broll_clips) * 0.05, 2),
+            "broll_flux": round(ai_broll_n * 0.05, 2),
             "ffmpeg_compositing": 0.00,
         }
     elif video_mode == "maximum":
@@ -1615,7 +1626,7 @@ def generate_full_video(
             "actor_image_flux": 0.05,
             "voiceover_elevenlabs": round(len(full_narration) * 0.00003, 3),
             "talking_head_kling_pro": round(audio_duration * KLING_PRO_PER_SEC, 2),
-            "broll_flux": round(len(broll_clips) * 0.05, 2),
+            "broll_flux": round(ai_broll_n * 0.05, 2),
             "ffmpeg_compositing": 0.00,
         }
     else:
@@ -1623,7 +1634,7 @@ def generate_full_video(
             "actor_image_flux": 0.05,
             "voiceover_elevenlabs": round(len(full_narration) * 0.00003, 3),
             "talking_head_kling": round(audio_duration * 0.056, 2),
-            "broll_kling": round(len(broll_clips) * 5 * 0.07, 2),
+            "broll_kling": round(ai_broll_n * 5 * 0.07, 2),
             "ffmpeg_compositing": 0.00,
         }
     cost["total"] = round(sum(cost.values()), 2)
