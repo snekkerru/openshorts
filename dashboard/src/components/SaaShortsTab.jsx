@@ -5,6 +5,7 @@ import { apiFetch } from '../lib/api';
 import StepIndicator from './ui/StepIndicator';
 import SegmentedControl from './ui/SegmentedControl';
 import StarBanner from './StarBanner';
+import { useI18n } from '../contexts/I18nContext';
 
 const STYLE_OPTIONS = [
   { id: 'ugc', label: 'UGC Natural', desc: 'Authentic, talking to camera' },
@@ -49,6 +50,7 @@ const RU_VOICES = [
 ];
 
 export default function SaaShortsTab({ openrouterKey, orTextModel, elevenLabsKey, falKey, falImageModel, falImageQuality, falImageAspect, falImageResolution, uploadPostKey, uploadUserId, managed = false }) {
+  const { t } = useI18n();
   // fal.ai image model + only the params the chosen model actually reads.
   const falImageHeaders = {
     ...(falImageModel ? { 'X-Fal-Image-Model': falImageModel } : {}),
@@ -97,6 +99,7 @@ export default function SaaShortsTab({ openrouterKey, orTextModel, elevenLabsKey
   const [actorOptions, setActorOptions] = useState([]);
   const [selectedActor, setSelectedActor] = useState(null);
   const [generatingActors, setGeneratingActors] = useState(false);
+  const [actorErrors, setActorErrors] = useState([]);
   const [actorGallery, setActorGallery] = useState([]);
   const [loadingGallery, setLoadingGallery] = useState(false);
   const [uploadedActorPreview, setUploadedActorPreview] = useState(null); // {localPreview, serverUrl}
@@ -182,7 +185,7 @@ export default function SaaShortsTab({ openrouterKey, orTextModel, elevenLabsKey
             // Job lost (server restart) — treat as failed so Retry appears
             setGenStatus('failed');
             setGenerating(false);
-            setGenLogs((prev) => [...prev, 'Job lost after server restart. Click Retry to resume from cached assets.']);
+            setGenLogs((prev) => [...prev, t('Job lost after server restart. Click Retry to resume from cached assets.')]);
             clearInterval(interval);
             return;
           }
@@ -206,6 +209,7 @@ export default function SaaShortsTab({ openrouterKey, orTextModel, elevenLabsKey
       }, 2000);
     }
     return () => clearInterval(interval);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [jobId, genStatus]);
 
   const fetchVoices = async () => {
@@ -225,7 +229,7 @@ export default function SaaShortsTab({ openrouterKey, orTextModel, elevenLabsKey
   const handleAnalyze = async () => {
     if (!url.trim() && !description.trim()) return;
     if (needsOpenrouterKey) {
-      setAnalyzeError('OpenRouter API key required. Set it in Settings.');
+      setAnalyzeError(t('OpenRouter API key required. Set it in Settings.'));
       return;
     }
 
@@ -250,7 +254,7 @@ export default function SaaShortsTab({ openrouterKey, orTextModel, elevenLabsKey
       });
 
       if (!res.ok) {
-        let msg = 'Analysis failed';
+        let msg = t('Analysis failed');
         try { const err = await res.json(); msg = err.detail || msg; } catch { msg = await res.text() || msg; }
         throw new Error(msg);
       }
@@ -319,16 +323,16 @@ export default function SaaShortsTab({ openrouterKey, orTextModel, elevenLabsKey
 
   const handleGenerate = async () => {
     if (!falKey) {
-      alert('fal.ai API key required. Set it in Settings.');
+      alert(t('fal.ai API key required. Set it in Settings.'));
       return;
     }
     if (!elevenLabsKey) {
-      alert('ElevenLabs API key required. Set it in Settings.');
+      alert(t('ElevenLabs API key required. Set it in Settings.'));
       return;
     }
 
     setGenerating(true);
-    setGenLogs(['Starting video generation...']);
+    setGenLogs([t('Starting video generation...')]);
     setGenStatus('processing');
     setGenResult(null);
     setStep(3);
@@ -378,7 +382,7 @@ export default function SaaShortsTab({ openrouterKey, orTextModel, elevenLabsKey
   const handleRetry = async () => {
     if (!jobId) return;
     setGenerating(true);
-    setGenLogs(['Retrying from cached assets...']);
+    setGenLogs([t('Retrying from cached assets...')]);
     setGenStatus('processing');
     setGenResult(null);
 
@@ -456,22 +460,22 @@ export default function SaaShortsTab({ openrouterKey, orTextModel, elevenLabsKey
         {/* Header */}
         <div className="flex items-end justify-between mb-2">
           <div>
-            <p className="eyebrow mb-2">02 · AI SHORTS</p>
-            <h1 className="font-display text-2xl text-ink">AI Shorts</h1>
+            <p className="eyebrow mb-2">02 · {t('AI SHORTS')}</p>
+            <h1 className="font-display text-2xl text-ink">{t('AI Shorts')}</h1>
           </div>
           {step > 0 && (
             <button onClick={handleReset} className="text-xs lowercase text-muted hover:text-ink flex items-center gap-1 transition-colors">
-              <RefreshCw size={12} /> Start over
+              <RefreshCw size={12} /> {t('Start over')}
             </button>
           )}
         </div>
         <p className="text-sm lowercase text-muted mb-6">
-          Generate viral UGC videos for any product or business
+          {t('Generate viral UGC videos for any product or business')}
         </p>
 
         {/* Progress Steps */}
         <div className="mb-8">
-          <StepIndicator steps={STEPS} current={step} />
+          <StepIndicator steps={STEPS.map((s) => t(s))} current={step} />
         </div>
 
         {/* ── Step 0: URL Input ────────────────────────────────── */}
@@ -480,7 +484,7 @@ export default function SaaShortsTab({ openrouterKey, orTextModel, elevenLabsKey
             <div className="card p-4 sm:p-8 space-y-6">
               {/* Video Mode Selector */}
               <div>
-                <label className="eyebrow block mb-3">Video Mode</label>
+                <label className="eyebrow block mb-3">{t('Video Mode')}</label>
                 <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
                   <button
                     onClick={() => setVideoMode('lowcost')}
@@ -489,11 +493,11 @@ export default function SaaShortsTab({ openrouterKey, orTextModel, elevenLabsKey
                     }`}
                   >
                     <div className="flex items-center justify-between mb-1.5 gap-2">
-                      <span className={`text-sm font-medium lowercase ${videoMode === 'lowcost' ? 'text-ink' : 'text-ink2'}`}>Low Cost</span>
-                      <span className="badge-ok">recommended</span>
+                      <span className={`text-sm font-medium lowercase ${videoMode === 'lowcost' ? 'text-ink' : 'text-ink2'}`}>{t('Low Cost')}</span>
+                      <span className="badge-ok">{t('recommended')}</span>
                     </div>
                     <p className="readout mb-1.5">~$0.80 / VIDEO</p>
-                    <p className="text-xs text-muted leading-relaxed">Hailuo 2.3 img2video + VEED Lipsync. Good movement + lip-sync.</p>
+                    <p className="text-xs text-muted leading-relaxed">{t('Hailuo 2.3 img2video + VEED Lipsync. Good movement + lip-sync.')}</p>
                   </button>
                   <button
                     onClick={() => setVideoMode('premium')}
@@ -502,11 +506,11 @@ export default function SaaShortsTab({ openrouterKey, orTextModel, elevenLabsKey
                     }`}
                   >
                     <div className="flex items-center justify-between mb-1.5 gap-2">
-                      <span className={`text-sm font-medium lowercase ${videoMode === 'premium' ? 'text-ink' : 'text-ink2'}`}>Premium</span>
-                      <span className="badge-brass">best quality</span>
+                      <span className={`text-sm font-medium lowercase ${videoMode === 'premium' ? 'text-ink' : 'text-ink2'}`}>{t('Premium')}</span>
+                      <span className="badge-brass">{t('best quality')}</span>
                     </div>
                     <p className="readout mb-1.5">~$2.00 / VIDEO</p>
-                    <p className="text-xs text-muted leading-relaxed">Kling Avatar v2 Standard. Full integrated movement.</p>
+                    <p className="text-xs text-muted leading-relaxed">{t('Kling Avatar v2 Standard. Full integrated movement.')}</p>
                   </button>
                   <button
                     onClick={() => setVideoMode('maximum')}
@@ -515,17 +519,17 @@ export default function SaaShortsTab({ openrouterKey, orTextModel, elevenLabsKey
                     }`}
                   >
                     <div className="flex items-center justify-between mb-1.5 gap-2">
-                      <span className={`text-sm font-medium lowercase ${videoMode === 'maximum' ? 'text-ink' : 'text-ink2'}`}>Maximum</span>
-                      <span className="badge-brass">top tier</span>
+                      <span className={`text-sm font-medium lowercase ${videoMode === 'maximum' ? 'text-ink' : 'text-ink2'}`}>{t('Maximum')}</span>
+                      <span className="badge-brass">{t('top tier')}</span>
                     </div>
                     <p className="readout mb-1.5">~$3.00 / VIDEO</p>
-                    <p className="text-xs text-muted leading-relaxed">Kling Avatar v2 Pro. Highest fidelity movement &amp; lip-sync.</p>
+                    <p className="text-xs text-muted leading-relaxed">{t('Kling Avatar v2 Pro. Highest fidelity movement & lip-sync.')}</p>
                   </button>
                 </div>
               </div>
 
               <div>
-                <label className="eyebrow block mb-2">Website URL <span className="opacity-60">(optional)</span></label>
+                <label className="eyebrow block mb-2">{t('Website URL')} <span className="opacity-60">{t('(optional)')}</span></label>
                 <div className="flex gap-3">
                   <div className="relative flex-1">
                     <Globe size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-muted" />
@@ -539,19 +543,19 @@ export default function SaaShortsTab({ openrouterKey, orTextModel, elevenLabsKey
                     />
                   </div>
                 </div>
-                <p className="text-xs lowercase text-muted mt-1.5">If provided, we&apos;ll scrape and research your site automatically</p>
+                <p className="text-xs lowercase text-muted mt-1.5">{t("If provided, we'll scrape and research your site automatically")}</p>
               </div>
 
               <div>
                 <label className="eyebrow block mb-2">
-                  {url.trim() ? 'Extra context' : 'Describe your product/business'} <span className="opacity-60">{url.trim() ? '(optional)' : '(required if no URL)'}</span>
+                  {url.trim() ? t('Extra context') : t('Describe your product/business')} <span className="opacity-60">{url.trim() ? t('(optional)') : t('(required if no URL)')}</span>
                 </label>
                 <textarea
                   value={description}
                   onChange={(e) => setDescription(e.target.value)}
                   rows={2}
                   className="input-field resize-none text-sm"
-                  placeholder="e.g. artisan pizzeria in Madrid, productivity coach, sportswear store, meditation app..."
+                  placeholder={t('e.g. artisan pizzeria in Madrid, productivity coach, sportswear store, meditation app...')}
                 />
               </div>
 
@@ -1136,6 +1140,7 @@ export default function SaaShortsTab({ openrouterKey, orTextModel, elevenLabsKey
                     if (!falKey || !actorDescription) return;
                     setGeneratingActors(true);
                     setActorOptions([]);
+                    setActorErrors([]);
                     setSelectedActor(null);
                     try {
                       const res = await apiFetch('/api/saasshorts/actor-options', {
@@ -1143,17 +1148,29 @@ export default function SaaShortsTab({ openrouterKey, orTextModel, elevenLabsKey
                         headers: { 'Content-Type': 'application/json', 'X-Fal-Key': falKey, ...falImageHeaders },
                         body: JSON.stringify({ actor_description: actorDescription, num_options: 3 }),
                       });
+                      const data = await res.json().catch(() => ({}));
                       if (res.ok) {
-                        const data = await res.json();
+                        // Partial success: some options may have rendered while
+                        // others failed content moderation (422) etc.
                         setActorOptions(data.images || []);
+                        setActorErrors(data.errors || []);
                         // Refresh gallery to include newly uploaded actors
                         const galRes = await fetch(getApiUrl('/api/saasshorts/actor-gallery'));
                         if (galRes.ok) {
                           const galData = await galRes.json();
                           setActorGallery(galData.images || []);
                         }
+                      } else {
+                        // Every option failed — surface the provider errors.
+                        const detail = data.detail;
+                        setActorErrors(
+                          (detail && detail.errors) || [{ message: (detail && detail.error) || `Request failed (${res.status})` }]
+                        );
                       }
-                    } catch (e) { console.error(e); }
+                    } catch (e) {
+                      console.error(e);
+                      setActorErrors([{ message: String(e.message || e) }]);
+                    }
                     finally { setGeneratingActors(false); }
                   }}
                   disabled={generatingActors || !falKey || !actorDescription}
@@ -1187,6 +1204,24 @@ export default function SaaShortsTab({ openrouterKey, orTextModel, elevenLabsKey
                         </button>
                       ))}
                     </div>
+                  </div>
+                )}
+
+                {/* Per-option generation errors (e.g. 422 content moderation) */}
+                {actorErrors.length > 0 && (
+                  <div className="mt-3 space-y-1.5">
+                    {actorErrors.map((err, i) => (
+                      <div key={i} className="flex items-start gap-2 text-xs text-danger bg-danger/10 border border-danger/30 rounded-input px-3 py-2">
+                        <AlertCircle size={13} className="shrink-0 mt-0.5" />
+                        <span>
+                          {err.code ? <span className="font-mono">{err.code} · </span> : null}
+                          {err.message}
+                        </span>
+                      </div>
+                    ))}
+                    {actorOptions.length > 0 && (
+                      <p className="text-xs text-muted">Some actors failed — the ones above still generated. Try again to fill the rest.</p>
+                    )}
                   </div>
                 )}
 

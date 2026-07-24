@@ -5,6 +5,7 @@ import App from './App.jsx'
 import Landing from './Landing.jsx'
 import Legal from './Legal.jsx'
 import { AuthProvider, useAuth } from './contexts/AuthContext'
+import { I18nProvider } from './contexts/I18nContext'
 import PricingPage from './components/PricingPage'
 import AccountPage from './components/AccountPage'
 import LoginModal from './components/LoginModal'
@@ -81,8 +82,10 @@ function Root() {
 
 createRoot(document.getElementById('root')).render(
   <StrictMode>
-    <AuthProvider>
-      <Root />
-    </AuthProvider>
+    <I18nProvider>
+      <AuthProvider>
+        <Root />
+      </AuthProvider>
+    </I18nProvider>
   </StrictMode>,
 )

@@ -21,6 +21,7 @@ import HistoryTab from './components/HistoryTab';
 import ProfileMenu from './components/ProfileMenu';
 import Modal from './components/ui/Modal';
 import { useAuth } from './contexts/AuthContext';
+import { useI18n } from './contexts/I18nContext';
 import { apiFetch, apiJson, QuotaError } from './lib/api';
 
 // Enhanced "Encryption" using XOR + Base64 with a Salt
@@ -176,6 +177,7 @@ const pollJob = async (jobId) => {
 function App() {
   // Cloud auth/billing session (inert when billing is disabled).
   const { billingEnabled, isManaged, isSignedIn, me, plan, refreshMe } = useAuth();
+  const { lang, setLang, t } = useI18n();
   const [showLogin, setShowLogin] = useState(false);
   const [showTopUp, setShowTopUp] = useState(false);
   const [showPlanChoice, setShowPlanChoice] = useState(false);
@@ -732,7 +734,7 @@ function App() {
 
     return (
       <div className="w-20 lg:w-64 bg-paper2 border-r border-rule flex flex-col h-full shrink-0 transition-all duration-300">
-        <a href="#landing" className="p-6 flex items-center gap-3" title="go to landing page">
+        <a href="#landing" className="p-6 flex items-center gap-3" title={t('go to landing page')}>
           <div className="w-8 h-8 bg-paper3 rounded-input flex items-center justify-center shrink-0 overflow-hidden border border-rule">
             <img src="/logo-openshorts.png" alt="Logo" className="w-full h-full object-cover" />
           </div>
@@ -753,7 +755,7 @@ function App() {
                   <span className="absolute left-0 top-1.5 bottom-1.5 w-0.5 bg-brass rounded-full" aria-hidden="true" />
                 )}
                 <NavIcon size={18} className={`shrink-0 ${isActive ? 'text-brass' : ''}`} />
-                <span className="text-sm lowercase hidden lg:block flex-1 text-left truncate">{item.label}</span>
+                <span className="text-sm lowercase hidden lg:block flex-1 text-left truncate">{t(item.label)}</span>
                 {item.byok && <span className="readout hidden lg:block">BYOK</span>}
                 <span className="readout hidden lg:block">{item.ord}</span>
               </button>
@@ -767,7 +769,7 @@ function App() {
             className="flex items-center gap-2 px-3 py-1.5 text-xs lowercase text-muted hover:text-ink2 transition-colors"
           >
             <Globe size={14} className="shrink-0" />
-            <span className="hidden lg:block truncate">landing page</span>
+            <span className="hidden lg:block truncate">{t('landing page')}</span>
           </a>
           <a
             href="https://github.com/mutonby/openshorts"
@@ -813,12 +815,25 @@ function App() {
                 className="btn-quiet px-3 py-1.5 text-xs"
               >
                 <Plus size={14} />
-                <span className="hidden sm:inline">New Project</span>
+                <span className="hidden sm:inline">{t('New Project')}</span>
               </button>
             )}
           </div>
 
           <div className="flex items-center gap-4">
+            {/* UI language switcher (independent from AI Shorts script language) */}
+            <div className="flex items-center rounded-full border border-rule bg-paper2 p-0.5 text-micro font-mono">
+              {[['en', 'EN'], ['ru', 'RU']].map(([code, label]) => (
+                <button
+                  key={code}
+                  onClick={() => setLang(code)}
+                  className={`px-2.5 py-1 rounded-full transition-colors ${lang === code ? 'bg-paper3 text-ink' : 'text-muted hover:text-ink2'}`}
+                >
+                  {label}
+                </button>
+              ))}
+            </div>
+
             {userProfiles.length > 0 && (
               <UserProfileSelector
                 profiles={userProfiles}
@@ -895,8 +910,8 @@ function App() {
           <div className="mx-6 mt-2 px-4 py-3 bg-paper2 border border-rule rounded-card flex items-center justify-between animate-fade shrink-0">
             <div className="flex items-center gap-2 text-sm text-ink2">
               <RotateCcw size={16} className="text-brass" />
-              <span className="font-medium">Session recovered</span>
-              <span className="text-muted text-xs">Your previous work has been restored.</span>
+              <span className="font-medium">{t('Session recovered')}</span>
+              <span className="text-muted text-xs">{t('Your previous work has been restored.')}</span>
             </div>
             <button onClick={() => setSessionRecovered(false)} className="text-muted hover:text-ink transition-colors">
               <X size={14} />
@@ -918,11 +933,11 @@ function App() {
             <div className="h-full overflow-y-auto p-4 sm:p-8 max-w-2xl mx-auto animate-fade">
               <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-4 mb-8">
                 <div>
-                  <p className="eyebrow mb-1.5">02 · SETTINGS</p>
-                  <h1 className="font-display text-2xl text-ink">Settings</h1>
+                  <p className="eyebrow mb-1.5">02 · {t('SETTINGS')}</p>
+                  <h1 className="font-display text-2xl text-ink">{t('Settings')}</h1>
                 </div>
                 <div className="flex items-center gap-2 text-xs text-muted mt-1">
-                  <Shield size={12} className="text-ok shrink-0" /> Privacy: keys only live in your browser (sent to backend just to process)
+                  <Shield size={12} className="text-ok shrink-0" /> {t('Privacy: keys only live in your browser (sent to backend just to process)')}
                 </div>
               </div>
               {isManaged ? (
@@ -1037,16 +1052,15 @@ function App() {
                     <div className="w-9 h-9 rounded-input bg-paper3 flex items-center justify-center shrink-0">
                       <Globe size={16} className="text-brass" />
                     </div>
-                    <h2 className="text-base font-medium text-ink lowercase">Video Translation</h2>
+                    <h2 className="text-base font-medium text-ink lowercase">{t('Video Translation')}</h2>
                   </div>
                   <span className="readout">BYOK</span>
                 </div>
                 <p className="text-xs text-muted mb-6 leading-relaxed">
-                  For <strong>AI Shorts &amp; dubbing</strong> — bring your own key. Translate your clips to different
-                  languages using <strong>ElevenLabs</strong> AI dubbing (billed by ElevenLabs). Not covered by your plan.
+                  {t('For AI Shorts & dubbing — bring your own key. Translate your clips to different languages using ElevenLabs AI dubbing (billed by ElevenLabs). Not covered by your plan.')}
                 </p>
                 <div className="space-y-4">
-                  <label className="block text-sm text-muted">ElevenLabs API Key</label>
+                  <label className="block text-sm text-muted">{t('ElevenLabs API Key')}</label>
                   <div className="flex flex-col sm:flex-row gap-2">
                     <input
                       type="password"
@@ -1065,24 +1079,24 @@ function App() {
                       }}
                       className={elevenLabsSaved ? 'badge-ok px-4' : 'btn-quiet py-2 px-4 text-sm'}
                     >
-                      {elevenLabsSaved ? <><Check size={12} /> saved</> : 'Save'}
+                      {elevenLabsSaved ? <><Check size={12} /> {t('saved')}</> : t('Save')}
                     </button>
                   </div>
                   <p className="text-xs text-muted leading-relaxed">
-                    Get your API key from ElevenLabs to enable video translation.
+                    {t('Get your API key from ElevenLabs to enable video translation.')}
                     <div className="mt-3 grid grid-cols-1 sm:grid-cols-2 gap-2">
                       <a href="https://elevenlabs.io/sign-up" target="_blank" rel="noopener noreferrer" className="p-2 border border-rule rounded-input hover:bg-paper3 transition-colors flex flex-col gap-1">
-                        <span className="text-ink2 font-medium">1. Sign Up</span>
-                        <span className="text-xs text-muted">Create account</span>
+                        <span className="text-ink2 font-medium">{t('1. Sign Up')}</span>
+                        <span className="text-xs text-muted">{t('Create account')}</span>
                       </a>
                       <a href="https://elevenlabs.io/app/settings/api-keys" target="_blank" rel="noopener noreferrer" className="p-2 border border-rule rounded-input hover:bg-paper3 transition-colors flex flex-col gap-1">
-                        <span className="text-ink2 font-medium">2. API Key</span>
-                        <span className="text-xs text-muted">Generate key</span>
+                        <span className="text-ink2 font-medium">{t('2. API Key')}</span>
+                        <span className="text-xs text-muted">{t('Generate key')}</span>
                       </a>
                     </div>
                     <br />
                     <span className="text-muted">
-                      Keys are only stored in your browser. They are sent to the backend only to process your request, never stored server-side.
+                      {t('Keys are only stored in your browser. They are sent to the backend only to process your request, never stored server-side.')}
                     </span>
                   </p>
                 </div>
@@ -1094,17 +1108,15 @@ function App() {
                     <div className="w-9 h-9 rounded-input bg-paper3 flex items-center justify-center shrink-0">
                       <Sparkles size={16} className="text-brass" />
                     </div>
-                    <h2 className="text-base font-medium text-ink">OpenRouter (AI Shorts scripts)</h2>
+                    <h2 className="text-base font-medium text-ink">{t('OpenRouter (AI Shorts scripts)')}</h2>
                   </div>
                   <span className="readout">BYOK</span>
                 </div>
                 <p className="text-xs text-muted mb-6 leading-relaxed">
-                  Product research, analysis and script writing for AI Shorts run through{' '}
-                  <strong>OpenRouter</strong>. One key, any model — leave the model empty to use
-                  the default.
+                  {t('Product research, analysis and script writing for AI Shorts run through OpenRouter. One key, any model — leave the model empty to use the default.')}
                 </p>
                 <div className="space-y-4">
-                  <label className="block text-sm text-muted">OpenRouter API Key</label>
+                  <label className="block text-sm text-muted">{t('OpenRouter API Key')}</label>
                   <div className="flex flex-col sm:flex-row gap-2">
                     <input
                       type="password"
@@ -1123,10 +1135,10 @@ function App() {
                       }}
                       className={orSaved ? 'badge-ok px-4' : 'btn-quiet py-2 px-4 text-sm'}
                     >
-                      {orSaved ? <><Check size={12} /> saved</> : 'Save'}
+                      {orSaved ? <><Check size={12} /> {t('saved')}</> : t('Save')}
                     </button>
                   </div>
-                  <label className="block text-sm text-muted">Text model</label>
+                  <label className="block text-sm text-muted">{t('Text model')}</label>
                   <input
                     type="text"
                     value={orTextModel}
@@ -1135,10 +1147,10 @@ function App() {
                     placeholder="google/gemini-3.1-flash-lite (default)"
                   />
                   <p className="text-xs text-muted leading-relaxed">
-                    Any OpenRouter model id, e.g. <code>anthropic/claude-sonnet-5</code> or{' '}
-                    <code>google/gemini-3.1-flash-lite</code>. Get a key at{' '}
+                    {t('Any OpenRouter model id, e.g.')} <code>anthropic/claude-sonnet-5</code> {t('or')}{' '}
+                    <code>google/gemini-3.1-flash-lite</code>. {t('Get a key at')}{' '}
                     <a href="https://openrouter.ai/keys" target="_blank" rel="noopener noreferrer" className="text-brass hover:text-ink">openrouter.ai/keys</a>.
-                    Keys are only stored in your browser.
+                    {' '}{t('Keys are only stored in your browser.')}
                   </p>
                 </div>
               </div>
@@ -1149,17 +1161,15 @@ function App() {
                     <div className="w-9 h-9 rounded-input bg-paper3 flex items-center justify-center shrink-0">
                       <Sparkles size={16} className="text-brass" />
                     </div>
-                    <h2 className="text-base font-medium text-ink">AI Shorts (UGC Videos)</h2>
+                    <h2 className="text-base font-medium text-ink">{t('AI Shorts (UGC Videos)')}</h2>
                   </div>
                   <span className="readout">BYOK</span>
                 </div>
                 <p className="text-xs text-muted mb-6 leading-relaxed">
-                  Generate UGC-style videos with AI actors for any product or business using <strong>fal.ai</strong>.
-                  <strong> Not covered by your plan</strong> — bring your own fal.ai + ElevenLabs keys (billed by those
-                  providers, ~$0.65-2 per video). Your plan still covers the AI script &amp; orchestration.
+                  {t('Generate UGC-style videos with AI actors for any product or business using fal.ai. Not covered by your plan — bring your own fal.ai + ElevenLabs keys (billed by those providers, ~$0.65-2 per video). Your plan still covers the AI script & orchestration.')}
                 </p>
                 <div className="space-y-4">
-                  <label className="block text-sm text-muted">fal.ai API Key</label>
+                  <label className="block text-sm text-muted">{t('fal.ai API Key')}</label>
                   <div className="flex flex-col sm:flex-row gap-2">
                     <input
                       type="password"
@@ -1178,27 +1188,27 @@ function App() {
                       }}
                       className={falSaved ? 'badge-ok px-4' : 'btn-quiet py-2 px-4 text-sm'}
                     >
-                      {falSaved ? <><Check size={12} /> saved</> : 'Save'}
+                      {falSaved ? <><Check size={12} /> {t('saved')}</> : t('Save')}
                     </button>
                   </div>
                   <p className="text-xs text-muted leading-relaxed">
-                    Get your API key from fal.ai to enable AI actor video generation.
+                    {t('Get your API key from fal.ai to enable AI actor video generation.')}
                     <div className="mt-3 grid grid-cols-1 sm:grid-cols-2 gap-2">
                       <a href="https://fal.ai/dashboard/keys" target="_blank" rel="noopener noreferrer" className="p-2 border border-rule rounded-input hover:bg-paper3 transition-colors flex flex-col gap-1">
-                        <span className="text-ink2 font-medium">1. Sign Up</span>
-                        <span className="text-xs text-muted">Create fal.ai account</span>
+                        <span className="text-ink2 font-medium">{t('1. Sign Up')}</span>
+                        <span className="text-xs text-muted">{t('Create fal.ai account')}</span>
                       </a>
                       <a href="https://fal.ai/dashboard/keys" target="_blank" rel="noopener noreferrer" className="p-2 border border-rule rounded-input hover:bg-paper3 transition-colors flex flex-col gap-1">
-                        <span className="text-ink2 font-medium">2. API Key</span>
-                        <span className="text-xs text-muted">Generate key</span>
+                        <span className="text-ink2 font-medium">{t('2. API Key')}</span>
+                        <span className="text-xs text-muted">{t('Generate key')}</span>
                       </a>
                     </div>
                     <br />
                     <span className="text-muted">
-                      Keys are only stored in your browser. Sent to backend only to process requests.
+                      {t('Keys are only stored in your browser. Sent to backend only to process requests.')}
                     </span>
                   </p>
-                  <label className="block text-sm text-muted pt-2">Image model (actor portrait + b-roll)</label>
+                  <label className="block text-sm text-muted pt-2">{t('Image model (actor portrait + b-roll)')}</label>
                   <select
                     value={falImageModel}
                     onChange={(e) => setFalImageModel(e.target.value)}
@@ -1211,16 +1221,16 @@ function App() {
 
                   {falImageModel === 'openai/gpt-image-2' && (
                     <div className="space-y-2">
-                      <label className="block text-sm text-muted">Quality</label>
+                      <label className="block text-sm text-muted">{t('Quality')}</label>
                       <select
                         value={falImageQuality}
                         onChange={(e) => setFalImageQuality(e.target.value)}
                         className="input-field"
                       >
-                        <option value="auto">Auto</option>
-                        <option value="low">Low</option>
-                        <option value="medium">Medium</option>
-                        <option value="high">High</option>
+                        <option value="auto">{t('Auto')}</option>
+                        <option value="low">{t('Low')}</option>
+                        <option value="medium">{t('Medium')}</option>
+                        <option value="high">{t('High')}</option>
                       </select>
                     </div>
                   )}
@@ -1228,7 +1238,7 @@ function App() {
                   {falImageModel === 'fal-ai/nano-banana-2' && (
                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                       <div className="space-y-2">
-                        <label className="block text-sm text-muted">Aspect ratio</label>
+                        <label className="block text-sm text-muted">{t('Aspect ratio')}</label>
                         <select
                           value={falImageAspect}
                           onChange={(e) => setFalImageAspect(e.target.value)}
@@ -1240,7 +1250,7 @@ function App() {
                         </select>
                       </div>
                       <div className="space-y-2">
-                        <label className="block text-sm text-muted">Resolution</label>
+                        <label className="block text-sm text-muted">{t('Resolution')}</label>
                         <select
                           value={falImageResolution}
                           onChange={(e) => setFalImageResolution(e.target.value)}
@@ -1255,8 +1265,7 @@ function App() {
                   )}
 
                   <p className="text-xs text-muted leading-relaxed">
-                    Model for AI actor photos and b-roll stills. FLUX.2 Pro is the default;
-                    GPT Image 2 and Nano Banana 2 expose their own quality / aspect / resolution options above.
+                    {t('Model for AI actor photos and b-roll stills. FLUX.2 Pro is the default; GPT Image 2 and Nano Banana 2 expose their own quality / aspect / resolution options above.')}
                   </p>
                 </div>
               </div>
