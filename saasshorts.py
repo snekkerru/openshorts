@@ -1524,46 +1524,51 @@ def generate_full_video(
     else:
         log("[3/6] ✅ Talking head cached, skipping.")
 
-    # ── Step 4: Generate b-roll clips ──
+    # ── Step 4: Generate/prepare b-roll clips (per-slot source) ──
     broll_segments = [
         seg for seg in script.get("segments", [])
-        if seg.get("broll_prompt") and seg.get("visual") == "broll"
+        if seg.get("visual") == "broll" and (
+            seg.get("broll_prompt") or seg.get("broll_asset_path")
+        )
     ]
 
     broll_clips = []
     if broll_segments:
-        # Check which b-roll clips need generating
-        broll_to_generate = []
+        to_build = []
         for i, seg in enumerate(broll_segments):
+            slot = classify_broll_slot(seg)
             broll_path = os.path.join(output_dir, f"{title_slug}_broll_{i}.mp4")
             if _exists(broll_path):
                 broll_clips.append({
-                    "path": broll_path,
-                    "start": seg["start"],
-                    "end": seg["end"],
+                    "path": broll_path, "start": seg["start"], "end": seg["end"],
+                    "audio_mode": slot["audio_mode"],
                 })
                 log(f"  ✅ B-roll {i} cached, skipping.")
             else:
-                broll_to_generate.append((i, seg, broll_path))
+                to_build.append((i, seg, slot, broll_path))
 
-        if broll_to_generate:
-            log(f"[4/6] Generating {len(broll_to_generate)} b-roll clips...")
+        if to_build:
+            log(f"[4/6] Preparing {len(to_build)} b-roll clip(s)...")
             with ThreadPoolExecutor(max_workers=3) as executor:
                 futures = {}
-                for i, seg, broll_path in broll_to_generate:
-                    future = executor.submit(
-                        generate_broll, seg["broll_prompt"], fal_key, broll_path, "5", image_model, image_opts
-                    )
-                    futures[future] = {"seg": seg, "path": broll_path}
+                for i, seg, slot, broll_path in to_build:
+                    if slot["source"] == "image":
+                        fut = executor.submit(ken_burns_clip, slot["asset_path"], broll_path,
+                                              int(seg["end"] - seg["start"]) or 5)
+                    elif slot["source"] == "video":
+                        fut = executor.submit(prepare_broll_video, slot["asset_path"], broll_path)
+                    else:
+                        fut = executor.submit(generate_broll, slot["prompt"], fal_key, broll_path,
+                                              "5", image_model, image_opts)
+                    futures[fut] = {"seg": seg, "slot": slot, "path": broll_path}
 
-                for future in as_completed(futures):
-                    info = futures[future]
+                for fut in as_completed(futures):
+                    info = futures[fut]
                     try:
-                        path = future.result()
+                        path = fut.result()
                         broll_clips.append({
-                            "path": path,
-                            "start": info["seg"]["start"],
-                            "end": info["seg"]["end"],
+                            "path": path, "start": info["seg"]["start"], "end": info["seg"]["end"],
+                            "audio_mode": info["slot"]["audio_mode"],
                         })
                         log(f"  ✅ B-roll clip ready: {os.path.basename(path)}")
                     except Exception as e:
