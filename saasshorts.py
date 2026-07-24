@@ -1036,6 +1036,41 @@ def classify_broll_slot(seg: dict) -> dict:
     }
 
 
+def build_ken_burns_cmd(img_path: str, output_path: str, dur_secs: int) -> list:
+    """Build the FFmpeg command that turns a still image into a Ken Burns clip."""
+    fps = 30
+    total_frames = dur_secs * fps
+    # Zoom from 1.0x to 1.15x over duration (subtle, cinematic)
+    zoompan_filter = (
+        f"scale=2160:3840,"
+        f"zoompan=z='1+0.15*on/{total_frames}':"
+        f"x='iw/2-(iw/zoom/2)+10*on/{total_frames}':"
+        f"y='ih/2-(ih/zoom/2)':"
+        f"d={total_frames}:s=1080x1920:fps={fps},"
+        f"setsar=1"
+    )
+    return [
+        "ffmpeg", "-y",
+        "-loop", "1", "-i", img_path,          # Input 0: image
+        "-f", "lavfi", "-i", "anullsrc=r=44100:cl=stereo",  # Input 1: silent audio
+        "-vf", zoompan_filter,
+        "-t", str(dur_secs),
+        "-map", "0:v", "-map", "1:a",
+        *video_encode_args(DELIVERY),
+        "-pix_fmt", "yuv420p",
+        "-c:a", "aac", "-b:a", "128k",
+        "-shortest",
+        output_path,
+    ]
+
+
+def ken_burns_clip(img_path: str, output_path: str, dur_secs: int) -> str:
+    """Render a Ken Burns clip from an existing image file."""
+    subprocess.run(build_ken_burns_cmd(img_path, output_path, dur_secs), check=True, capture_output=True)
+    print(f"[SaaSShorts] ✅ B-roll (Ken Burns): {output_path}")
+    return output_path
+
+
 def generate_broll(
     prompt: str, fal_key: str, output_path: str, duration: str = "5", image_model: str = None, image_opts: dict = None
 ) -> str:
@@ -1070,38 +1105,12 @@ def generate_broll(
             f.write(img_resp.content)
 
     # Step 2: Ken Burns effect — slow zoom in with slight pan
-    fps = 30
-    total_frames = dur_secs * fps
-    # Zoom from 1.0x to 1.15x over duration (subtle, cinematic)
-    zoompan_filter = (
-        f"scale=2160:3840,"
-        f"zoompan=z='1+0.15*on/{total_frames}':"
-        f"x='iw/2-(iw/zoom/2)+10*on/{total_frames}':"
-        f"y='ih/2-(ih/zoom/2)':"
-        f"d={total_frames}:s=1080x1920:fps={fps},"
-        f"setsar=1"
-    )
-    cmd = [
-        "ffmpeg", "-y",
-        "-loop", "1", "-i", img_path,          # Input 0: image
-        "-f", "lavfi", "-i", "anullsrc=r=44100:cl=stereo",  # Input 1: silent audio
-        "-vf", zoompan_filter,
-        "-t", str(dur_secs),
-        "-map", "0:v", "-map", "1:a",
-        *video_encode_args(DELIVERY),
-        "-pix_fmt", "yuv420p",
-        "-c:a", "aac", "-b:a", "128k",
-        "-shortest",
-        output_path,
-    ]
-
-    subprocess.run(cmd, check=True, capture_output=True)
+    ken_burns_clip(img_path, output_path, dur_secs)
 
     # Cleanup temp image
     if os.path.exists(img_path):
         os.remove(img_path)
 
-    print(f"[SaaSShorts] ✅ B-roll (Ken Burns): {output_path}")
     return output_path
 
 

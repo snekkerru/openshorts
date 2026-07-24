@@ -40,3 +40,26 @@ class TestClassifyBrollSlot:
     def test_video_mute_defaults_true(self):
         r = classify_broll_slot(_seg(broll_source="video", broll_asset_path="/x/y.mp4"))
         assert r["audio_mode"] == "voiceover"
+
+
+from saasshorts import build_ken_burns_cmd
+
+
+class TestKenBurnsCmd:
+    def test_cmd_loops_image_and_sets_duration(self):
+        cmd = build_ken_burns_cmd("/tmp/in.png", "/tmp/out.mp4", 5)
+        assert cmd[0] == "ffmpeg"
+        assert "-loop" in cmd and "1" in cmd
+        assert "/tmp/in.png" in cmd
+        assert cmd[-1] == "/tmp/out.mp4"
+        # duration honored
+        i = cmd.index("-t")
+        assert cmd[i + 1] == "5"
+
+    def test_cmd_contains_zoompan_ken_burns(self):
+        cmd = build_ken_burns_cmd("/tmp/in.png", "/tmp/out.mp4", 4)
+        vf = cmd[cmd.index("-vf") + 1]
+        assert "zoompan" in vf
+        assert "s=1080x1920" in vf
+        # 4s * 30fps = 120 frames drives the zoom denominator
+        assert "120" in vf
