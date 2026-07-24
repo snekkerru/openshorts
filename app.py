@@ -3027,6 +3027,11 @@ from saasshorts import (
     get_elevenlabs_voices,
     DEFAULT_VOICES,
 )
+from saas_uploads import (
+    validate_broll_upload,
+    UploadValidationError,
+    BROLL_VIDEO_MAX_BYTES,
+)
 
 # State for SaaSShorts jobs (separate from video processing jobs)
 saas_jobs: Dict[str, Dict] = {}
@@ -3143,6 +3148,28 @@ async def saasshorts_actor_upload(request: Request, file: UploadFile = File(...)
         raise
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.post("/api/saasshorts/broll-upload")
+async def saasshorts_broll_upload(request: Request, file: UploadFile = File(...)):
+    """Upload a custom b-roll image or video (stored locally only, not S3)."""
+    await require_managed_entitlement(request)
+    # Read up to the larger (video) cap; validate the exact type/size after.
+    content = await file.read(BROLL_VIDEO_MAX_BYTES + 1)
+    try:
+        kind, ext = validate_broll_upload(file.content_type, len(content))
+    except UploadValidationError as e:
+        raise HTTPException(status_code=e.status_code, detail=e.detail)
+    if len(content) < 1000:
+        raise HTTPException(status_code=400, detail="File too small to be valid")
+
+    upload_id = uuid.uuid4().hex[:8]
+    upload_dir = os.path.join(OUTPUT_DIR, "broll_uploads")
+    os.makedirs(upload_dir, exist_ok=True)
+    filename = f"broll_{upload_id}.{ext}"
+    with open(os.path.join(upload_dir, filename), "wb") as f:
+        f.write(content)
+    return {"url": f"/videos/broll_uploads/{filename}", "kind": kind}
 
 
 @app.post("/api/saasshorts/actor-options")
@@ -3595,6 +3622,18 @@ async def saasshorts_generate(
             src = _safe_under(OUTPUT_DIR, req.selected_actor_url.replace("/videos/", "").lstrip("/"))
             if src and os.path.exists(src):
                 selected_actor_path = src
+
+    # Resolve user b-roll asset urls -> safe local paths on each segment.
+    for seg in req.script.get("segments", []) or []:
+        asset_url = seg.get("broll_asset_url")
+        if asset_url:
+            src = _safe_under(OUTPUT_DIR, asset_url.replace("/videos/", "").lstrip("/"))
+            if src and os.path.exists(src):
+                seg["broll_asset_path"] = src
+            else:
+                # Missing/invalid asset -> drop to AI so classify_broll_slot falls back.
+                seg.pop("broll_asset_path", None)
+                seg["broll_source"] = "ai"
 
     owner = await _history_owner(request)
     try:
