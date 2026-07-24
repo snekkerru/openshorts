@@ -434,7 +434,7 @@ def upload_job_artifacts(directory, job_id):
     Upload all generated clips and metadata for a job to S3.
     """
     bucket_name = os.environ.get('AWS_S3_BUCKET', 'my-clips-bucket')
-    
+
     if not os.path.exists(directory):
         return
 
@@ -444,5 +444,115 @@ def upload_job_artifacts(directory, job_id):
             file_path = os.path.join(directory, filename)
             s3_key = f"{job_id}/{filename}"
             upload_file_to_s3(file_path, bucket_name, s3_key)
+
+
+# ── Private per-user generation history ────────────────────────────────
+
+def _history_prefix(owner, job_id=None):
+    """Build S3 prefix for history records."""
+    base = f"my-generations/{owner}/"
+    return f"{base}{job_id}/" if job_id else base
+
+
+def save_generation_record(owner, job_id, metadata, status,
+                           video_path=None, actor_image_path=None):
+    """Write/overwrite the private history record for one generation."""
+    import datetime
+    bucket = os.environ.get('AWS_S3_BUCKET', 'my-clips-bucket')
+    s3_client = get_s3_client()
+    if not s3_client:
+        return False
+    prefix = _history_prefix(owner, job_id)
+    meta_key = f"{prefix}metadata.json"
+    try:
+        # Preserve created_at across re-writes.
+        created_at = None
+        try:
+            existing = s3_client.get_object(Bucket=bucket, Key=meta_key)
+            created_at = json.loads(existing['Body'].read().decode()).get("created_at")
+        except Exception:
+            pass
+        now = datetime.datetime.utcnow().isoformat() + "Z"
+        record = dict(metadata)
+        record["job_id"] = job_id
+        record["status"] = status
+        record["created_at"] = created_at or now
+        record["updated_at"] = now
+
+        if video_path and os.path.exists(video_path):
+            s3_client.upload_file(video_path, bucket, f"{prefix}video.mp4",
+                                  ExtraArgs={'ContentType': 'video/mp4'})
+        if actor_image_path and os.path.exists(actor_image_path):
+            s3_client.upload_file(actor_image_path, bucket, f"{prefix}actor.png",
+                                  ExtraArgs={'ContentType': 'image/png'})
+
+        s3_client.put_object(Bucket=bucket, Key=meta_key,
+                             Body=json.dumps(record, ensure_ascii=False, indent=2).encode('utf-8'),
+                             ContentType='application/json')
+        return True
+    except Exception as e:
+        logger.error(f"save_generation_record failed for {owner}/{job_id}: {e}")
+        return False
+
+
+def list_my_generations(owner, limit=100):
+    """List one owner's history, newest-first, with presigned video/actor URLs."""
+    bucket = os.environ.get('AWS_S3_BUCKET', 'my-clips-bucket')
+    s3_client = get_s3_client()
+    if not s3_client:
+        return []
+    prefix = _history_prefix(owner)
+    out = []
+    try:
+        paginator = s3_client.get_paginator('list_objects_v2')
+        meta_objs = []
+        for page in paginator.paginate(Bucket=bucket, Prefix=prefix):
+            for obj in page.get('Contents', []):
+                if obj['Key'].endswith('/metadata.json'):
+                    meta_objs.append(obj)
+        for obj in meta_objs:
+            try:
+                body = s3_client.get_object(Bucket=bucket, Key=obj['Key'])['Body'].read().decode()
+                data = json.loads(body)
+                job_prefix = obj['Key'].rsplit('metadata.json', 1)[0]
+                data["video_url"] = generate_presigned_url(bucket, f"{job_prefix}video.mp4", 7200) \
+                    if _object_exists(s3_client, bucket, f"{job_prefix}video.mp4") else ""
+                data["actor_url"] = generate_presigned_url(bucket, f"{job_prefix}actor.png", 7200) \
+                    if _object_exists(s3_client, bucket, f"{job_prefix}actor.png") else ""
+                out.append(data)
+                if limit and len(out) >= limit:
+                    break
+            except Exception as e:
+                logger.error(f"read history meta {obj['Key']}: {e}")
+    except Exception as e:
+        logger.error(f"list_my_generations failed for {owner}: {e}")
+    return out
+
+
+def _object_exists(s3_client, bucket, key):
+    """Check if an S3 object exists."""
+    try:
+        s3_client.head_object(Bucket=bucket, Key=key)
+        return True
+    except Exception:
+        return False
+
+
+def delete_my_generation(owner, job_id):
+    """Delete all objects under a generation's prefix (idempotent)."""
+    bucket = os.environ.get('AWS_S3_BUCKET', 'my-clips-bucket')
+    s3_client = get_s3_client()
+    if not s3_client:
+        return False
+    prefix = _history_prefix(owner, job_id)
+    try:
+        paginator = s3_client.get_paginator('list_objects_v2')
+        for page in paginator.paginate(Bucket=bucket, Prefix=prefix):
+            for obj in page.get('Contents', []):
+                s3_client.delete_object(Bucket=bucket, Key=obj['Key'])
+        return True
+    except Exception as e:
+        logger.error(f"delete_my_generation failed for {owner}/{job_id}: {e}")
+        return False
 
 
