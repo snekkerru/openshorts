@@ -22,7 +22,8 @@ from fastapi.staticfiles import StaticFiles
 from fastapi.responses import HTMLResponse, FileResponse, JSONResponse
 from starlette.background import BackgroundTask
 from pydantic import BaseModel
-from s3_uploader import upload_job_artifacts, list_all_clips, upload_actor_to_s3, list_actor_gallery, upload_video_to_gallery, list_video_gallery
+from s3_uploader import upload_job_artifacts, list_all_clips, upload_actor_to_s3, list_actor_gallery, upload_video_to_gallery, list_video_gallery, save_generation_record, list_my_generations, delete_my_generation
+from generation_history import build_meta, merge_generations
 
 load_dotenv()
 
@@ -337,6 +338,19 @@ async def _assert_job_owner(request, record):
     # the .owner sidecar store its string form — UUID != str is always True.
     if user is None or str(user.id) != str(owner):
         raise HTTPException(status_code=404, detail="Not found")
+
+
+async def _history_owner(request):
+    """Folder key for the caller's private history. Cloud → user id; self-host → 'local'."""
+    return (await _owner_id(request)) or "local"
+
+
+def _job_belongs_factory(request_owner):
+    """Predicate for merge_generations: which live saas_jobs are the caller's.
+    Self-host (BILLING off) owns all; cloud matches the stamped user_id."""
+    if not BILLING_ENABLED:
+        return lambda job: True
+    return lambda job: job.get("user_id") == request_owner
 
 # Application State
 # PriorityQueue holds (priority, seq, job_id). Lower priority dispatches first:
@@ -3565,6 +3579,14 @@ async def saasshorts_generate(
             if src and os.path.exists(src):
                 selected_actor_path = src
 
+    owner = await _history_owner(request)
+    try:
+        save_generation_record(owner, job_id,
+                               build_meta(job_id, req.script, req.video_mode, "processing"),
+                               "processing")
+    except Exception as _hist_err:
+        print(f"[history] start record skipped: {_hist_err}")
+
     config = {
         "fal_key": fal_key,
         "elevenlabs_key": elevenlabs_key,
@@ -3603,6 +3625,19 @@ async def saasshorts_generate(
                 }
                 saas_jobs[job_id]["logs"].append("Video generation completed!")
 
+                try:
+                    save_generation_record(
+                        owner, job_id,
+                        build_meta(job_id, req.script, req.video_mode, "completed",
+                                   cost_estimate=result.get("cost_estimate", {}),
+                                   duration=result.get("duration", 0)),
+                        "completed",
+                        video_path=result.get("video_path"),
+                        actor_image_path=result.get("actor_image"),
+                    )
+                except Exception as _h:
+                    log_msg(f"⚠️ History save skipped: {_h}")
+
                 # Upload to public gallery — opt-in only: the metadata carries
                 # the user's product name, URL and full script.
                 if req.share_to_gallery:
@@ -3640,6 +3675,13 @@ async def saasshorts_generate(
             if job_id in saas_jobs:
                 saas_jobs[job_id]["status"] = "failed"
                 saas_jobs[job_id]["logs"].append(f"Error: {str(e)}")
+            try:
+                save_generation_record(
+                    owner, job_id,
+                    build_meta(job_id, req.script, req.video_mode, "failed", error=str(e)),
+                    "failed")
+            except Exception:
+                pass
         finally:
             concurrency_semaphore.release()
 
@@ -3661,6 +3703,30 @@ async def saasshorts_status(job_id: str, request: Request):
         "logs": job["logs"],
         "result": job.get("result"),
     }
+
+
+@app.get("/api/saasshorts/my-generations")
+async def saasshorts_my_generations(request: Request):
+    """List the caller's video generations (S3 history merged with live jobs)."""
+    owner = await _history_owner(request)
+    records = list_my_generations(owner)
+    belongs = _job_belongs_factory(await _owner_id(request))
+    merged = merge_generations(records, saas_jobs, belongs)
+    return {"generations": merged}
+
+
+@app.delete("/api/saasshorts/my-generations/{job_id}")
+async def saasshorts_delete_generation(job_id: str, request: Request):
+    owner = await _history_owner(request)
+    ok = delete_my_generation(owner, job_id)
+    # Drop from live memory too, if the caller owns it.
+    if job_id in saas_jobs:
+        try:
+            await _assert_job_owner(request, saas_jobs[job_id])
+            del saas_jobs[job_id]
+        except HTTPException:
+            pass
+    return {"deleted": ok}
 
 
 @app.get("/api/saasshorts/voices")
