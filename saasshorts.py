@@ -1071,6 +1071,48 @@ def ken_burns_clip(img_path: str, output_path: str, dur_secs: int) -> str:
     return output_path
 
 
+def _has_audio_stream(path: str) -> bool:
+    """True if the media file has at least one audio stream (ffprobe)."""
+    try:
+        out = subprocess.run(
+            ["ffprobe", "-v", "error", "-select_streams", "a",
+             "-show_entries", "stream=index", "-of", "csv=p=0", path],
+            check=True, capture_output=True, text=True,
+        ).stdout.strip()
+        return bool(out)
+    except Exception:
+        return False
+
+
+def build_prepare_video_cmd(src_path: str, output_path: str, has_audio: bool) -> list:
+    """Normalize a user b-roll video, guaranteeing a mappable audio stream.
+
+    Maps the real audio when present; otherwise adds a silent anullsrc track so
+    the compositor's atrim/amix never fails on an audioless clip.
+    """
+    cmd = ["ffmpeg", "-y", "-i", src_path]
+    if not has_audio:
+        cmd += ["-f", "lavfi", "-i", "anullsrc=r=44100:cl=stereo"]
+    cmd += [
+        "-map", "0:v",
+        "-map", ("0:a" if has_audio else "1:a"),
+        *video_encode_args(DELIVERY),
+        "-pix_fmt", "yuv420p",
+        "-c:a", "aac", "-b:a", "128k",
+        "-shortest",
+        output_path,
+    ]
+    return cmd
+
+
+def prepare_broll_video(src_path: str, output_path: str) -> str:
+    """Normalize a user-supplied b-roll video into the slot clip path."""
+    cmd = build_prepare_video_cmd(src_path, output_path, _has_audio_stream(src_path))
+    subprocess.run(cmd, check=True, capture_output=True)
+    print(f"[SaaSShorts] ✅ B-roll (user video): {output_path}")
+    return output_path
+
+
 def generate_broll(
     prompt: str, fal_key: str, output_path: str, duration: str = "5", image_model: str = None, image_opts: dict = None
 ) -> str:

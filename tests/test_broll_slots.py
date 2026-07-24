@@ -63,3 +63,24 @@ class TestKenBurnsCmd:
         assert "s=1080x1920" in vf
         # 4s * 30fps = 120 frames drives the zoom denominator
         assert "120" in vf
+
+
+from saasshorts import build_prepare_video_cmd
+
+
+class TestPrepareVideoCmd:
+    def test_silent_fallback_when_source_has_no_audio(self):
+        cmd = build_prepare_video_cmd("/tmp/in.mp4", "/tmp/slot.mp4", has_audio=False)
+        assert cmd[0] == "ffmpeg"
+        assert "/tmp/in.mp4" in cmd
+        assert cmd[-1] == "/tmp/slot.mp4"
+        # a silent anullsrc input guarantees an audio stream even if src has none
+        assert "anullsrc=r=44100:cl=stereo" in cmd
+        assert "1:a" in cmd          # audio mapped from the silent source
+        assert "-shortest" in cmd
+
+    def test_uses_real_audio_when_present(self):
+        cmd = build_prepare_video_cmd("/tmp/in.mp4", "/tmp/slot.mp4", has_audio=True)
+        assert "anullsrc=r=44100:cl=stereo" not in cmd
+        assert "0:a" in cmd          # audio mapped from the real input
+        assert "0:v" in cmd
