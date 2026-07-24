@@ -61,11 +61,13 @@ def get_s3_client():
     if not access_key or not secret_key:
         return None
 
+    endpoint_url = os.environ.get('AWS_S3_ENDPOINT_URL') or None
     return boto3.client(
         's3',
         aws_access_key_id=access_key,
         aws_secret_access_key=secret_key,
         region_name=region,
+        endpoint_url=endpoint_url,
         config=Config(signature_version='s3v4')
     )
 
