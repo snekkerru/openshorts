@@ -84,3 +84,35 @@ class TestPrepareVideoCmd:
         assert "anullsrc=r=44100:cl=stereo" not in cmd
         assert "0:a" in cmd          # audio mapped from the real input
         assert "0:v" in cmd
+
+
+from saasshorts import build_composite_filter
+
+
+def _th(j_start, j_end):
+    return {"type": "th", "start": j_start, "end": j_end}
+
+
+def _broll(index, start, end, audio_mode):
+    return {"type": "broll", "index": index, "start": start, "end": end,
+            "duration": end - start, "audio_mode": audio_mode}
+
+
+class TestCompositeFilter:
+    def test_voiceover_broll_uses_talking_head_audio_only(self):
+        segs = [_th(0, 5), _broll(0, 5, 9, "voiceover"), _th(9, 12)]
+        f = build_composite_filter(segs, "ass='subs.ass'")
+        # b-roll video from input 1, audio from talking head [0:a], no amix
+        assert "[1:v]trim=start=0:end=4.000" in f
+        assert "[0:a]atrim=start=5.000:end=9.000" in f
+        assert "amix" not in f
+        assert "concat=n=3:v=1:a=1[outv][outa]" in f
+        assert "[outv]ass='subs.ass'[finalv]" in f
+
+    def test_mix_broll_amixes_clip_and_voiceover(self):
+        segs = [_th(0, 5), _broll(0, 5, 9, "mix"), _th(9, 12)]
+        f = build_composite_filter(segs, "ass='subs.ass'")
+        # both the clip audio [1:a] and the voiceover [0:a] feed an amix
+        assert "amix=inputs=2" in f
+        assert "[1:a]atrim=start=0:end=4.000" in f
+        assert "[0:a]atrim=start=5.000:end=9.000" in f

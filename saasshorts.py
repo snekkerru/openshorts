@@ -1286,6 +1286,48 @@ def generate_srt_from_script(segments: list, output_path: str) -> str:
     return output_path
 
 
+def build_composite_filter(segments: list, sub_filter: str) -> str:
+    """Assemble the FFmpeg filter_complex for the talking-head + b-roll timeline.
+
+    Talking-head segments trim [0:v]/[0:a]. Voiceover b-roll segments take the
+    clip video [idx:v] but keep [0:a]. Mix b-roll segments amix the clip audio
+    [idx:a] together with the voiceover [0:a] so both are audible.
+    """
+    norm = ("scale=1080:1920:force_original_aspect_ratio=decrease,"
+            "pad=1080:1920:(ow-iw)/2:(oh-ih)/2,fps=30,setsar=1")
+    filter_parts = []
+    concat_parts = []
+
+    for j, seg in enumerate(segments):
+        if seg["type"] == "th":
+            filter_parts.append(
+                f"[0:v]trim=start={seg['start']:.3f}:end={seg['end']:.3f},setpts=PTS-STARTPTS,{norm}[tv{j}]")
+            filter_parts.append(
+                f"[0:a]atrim=start={seg['start']:.3f}:end={seg['end']:.3f},asetpts=PTS-STARTPTS[ta{j}]")
+            concat_parts.append(f"[tv{j}][ta{j}]")
+        else:
+            idx = seg["index"] + 1
+            dur = seg["duration"]
+            filter_parts.append(
+                f"[{idx}:v]trim=start=0:end={dur:.3f},setpts=PTS-STARTPTS,{norm}[bv{j}]")
+            if seg.get("audio_mode") == "mix":
+                filter_parts.append(
+                    f"[0:a]atrim=start={seg['start']:.3f}:end={seg['end']:.3f},asetpts=PTS-STARTPTS[voa{j}]")
+                filter_parts.append(
+                    f"[{idx}:a]atrim=start=0:end={dur:.3f},asetpts=PTS-STARTPTS[cla{j}]")
+                filter_parts.append(
+                    f"[voa{j}][cla{j}]amix=inputs=2:duration=first:dropout_transition=0,dynaudnorm[ba{j}]")
+            else:
+                filter_parts.append(
+                    f"[0:a]atrim=start={seg['start']:.3f}:end={seg['end']:.3f},asetpts=PTS-STARTPTS[ba{j}]")
+            concat_parts.append(f"[bv{j}][ba{j}]")
+
+    n = len(segments)
+    filter_parts.append(f"{''.join(concat_parts)}concat=n={n}:v=1:a=1[outv][outa]")
+    filter_parts.append(f"[outv]{sub_filter}[finalv]")
+    return ";".join(filter_parts)
+
+
 def composite_video(
     talking_head_path: str,
     broll_clips: List[Dict],
@@ -1356,6 +1398,7 @@ def composite_video(
             "start": bstart,
             "end": bend,
             "duration": bend - bstart,
+            "audio_mode": clip.get("audio_mode", "voiceover"),
         })
         prev_end = bend
 
@@ -1367,41 +1410,7 @@ def composite_video(
     for clip in sorted_broll:
         inputs.extend(["-i", clip["path"]])
 
-    filter_parts = []
-    concat_parts = []
-
-    # Normalize all segments to same resolution and fps for concat
-    norm = "scale=1080:1920:force_original_aspect_ratio=decrease,pad=1080:1920:(ow-iw)/2:(oh-ih)/2,fps=30,setsar=1"
-
-    for j, seg in enumerate(segments):
-        if seg["type"] == "th":
-            filter_parts.append(
-                f"[0:v]trim=start={seg['start']:.3f}:end={seg['end']:.3f},setpts=PTS-STARTPTS,{norm}[tv{j}]"
-            )
-            filter_parts.append(
-                f"[0:a]atrim=start={seg['start']:.3f}:end={seg['end']:.3f},asetpts=PTS-STARTPTS[ta{j}]"
-            )
-            concat_parts.append(f"[tv{j}][ta{j}]")
-        else:
-            idx = seg["index"] + 1
-            dur = seg["duration"]
-            filter_parts.append(
-                f"[{idx}:v]trim=start=0:end={dur:.3f},setpts=PTS-STARTPTS,{norm}[bv{j}]"
-            )
-            filter_parts.append(
-                f"[0:a]atrim=start={seg['start']:.3f}:end={seg['end']:.3f},asetpts=PTS-STARTPTS[ba{j}]"
-            )
-            concat_parts.append(f"[bv{j}][ba{j}]")
-
-    n = len(segments)
-    filter_parts.append(
-        f"{''.join(concat_parts)}concat=n={n}:v=1:a=1[outv][outa]"
-    )
-    filter_parts.append(
-        f"[outv]{sub_filter}[finalv]"
-    )
-
-    filter_str = ";".join(filter_parts)
+    filter_str = build_composite_filter(segments, sub_filter)
 
     cmd = [
         "ffmpeg", "-y",
