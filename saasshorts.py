@@ -1007,6 +1007,35 @@ def generate_talking_head_lowcost(
     return output_path
 
 
+def classify_broll_slot(seg: dict) -> dict:
+    """Normalize a b-roll script segment into a slot decision.
+
+    Returns source ("ai"|"image"|"video"), the local asset_path (image/video
+    only), audio_mode ("voiceover"|"mix"), and the prompt (ai only). Unknown
+    sources, or image/video slots missing a usable asset_path, fall back to AI.
+    """
+    source = seg.get("broll_source") or "ai"
+    asset_path = seg.get("broll_asset_path")
+    if source not in ("ai", "image", "video"):
+        source = "ai"
+    if source in ("image", "video") and not asset_path:
+        source = "ai"
+
+    if source == "video":
+        # mute default True -> voiceover only; False -> mix clip audio in too.
+        mute = seg.get("broll_mute_audio", True)
+        audio_mode = "voiceover" if mute else "mix"
+    else:
+        audio_mode = "voiceover"
+
+    return {
+        "source": source,
+        "asset_path": asset_path if source in ("image", "video") else None,
+        "audio_mode": audio_mode,
+        "prompt": seg.get("broll_prompt") if source == "ai" else None,
+    }
+
+
 def generate_broll(
     prompt: str, fal_key: str, output_path: str, duration: str = "5", image_model: str = None, image_opts: dict = None
 ) -> str:
