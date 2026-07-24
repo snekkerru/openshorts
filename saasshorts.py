@@ -1399,6 +1399,13 @@ def composite_video(
         # B-roll segment can't be longer than the actual clip
         bend = min(clip["end"], bstart + actual_dur)
 
+        # Defensive: user-editable windows may be reversed (end<=start) or
+        # overlap a prior slot. Skip such a slot so we never emit a zero/negative
+        # trim or a double cutaway — the talking head simply plays through it.
+        if bend <= bstart or bstart < prev_end:
+            print(f"[SaaSShorts] ⚠️ Skipping invalid b-roll window {i}: [{bstart}, {bend}] (prev_end={prev_end:.2f})")
+            continue
+
         if prev_end < bstart:
             segments.append({"type": "th", "start": prev_end, "end": bstart})
 
