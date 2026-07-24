@@ -794,16 +794,22 @@ def generate_talking_head(
     audio_path: str,
     fal_key: str,
     output_path: str,
+    tier: str = "standard",
 ) -> str:
-    """Generate talking head video using Kling Avatar v2 Standard on fal.ai."""
-    print(f"[SaaSShorts] 🗣️ Generating talking head (Kling Avatar v2)...")
+    """Generate talking head video using Kling Avatar v2 on fal.ai.
+
+    tier: "standard" (premium mode) or "pro" (maximum mode). Same request
+    shape, different fal endpoint.
+    """
+    model_id = "fal-ai/kling-video/ai-avatar/v2/pro" if tier == "pro" else "fal-ai/kling-video/ai-avatar/v2/standard"
+    print(f"[SaaSShorts] 🗣️ Generating talking head (Kling Avatar v2 {tier})...")
 
     # Upload image and audio to fal.ai CDN
     image_url = _fal_upload_file(image_path, fal_key)
     audio_url = _fal_upload_file(audio_path, fal_key)
 
     result = _fal_run(
-        "fal-ai/kling-video/ai-avatar/v2/standard",
+        model_id,
         {
             "image_url": image_url,
             "audio_url": audio_url,
@@ -1339,9 +1345,12 @@ def generate_full_video(
         if video_mode == "lowcost":
             log("[3/6] Generating talking head (Low Cost: Hailuo + VEED Lipsync)... This takes 2-5 minutes.")
             talking_head = generate_talking_head_lowcost(actor_img, audio_path, fal_key, talking_head)
+        elif video_mode == "maximum":
+            log("[3/6] Generating talking head video (Kling Avatar v2 Pro)... This takes 2-5 minutes.")
+            talking_head = generate_talking_head(actor_img, audio_path, fal_key, talking_head, tier="pro")
         else:
             log("[3/6] Generating talking head video (Kling Avatar v2)... This takes 2-5 minutes.")
-            talking_head = generate_talking_head(actor_img, audio_path, fal_key, talking_head)
+            talking_head = generate_talking_head(actor_img, audio_path, fal_key, talking_head, tier="standard")
         log("[3/6] Talking head ready.")
     else:
         log("[3/6] ✅ Talking head cached, skipping.")
@@ -1414,6 +1423,15 @@ def generate_full_video(
             "voiceover_elevenlabs": round(len(full_narration) * 0.00003, 3),
             "hailuo_img2video": 0.19,
             "veed_lipsync": 0.20,
+            "broll_flux": round(len(broll_clips) * 0.05, 2),
+            "ffmpeg_compositing": 0.00,
+        }
+    elif video_mode == "maximum":
+        KLING_PRO_PER_SEC = 0.115  # Kling Avatar v2 Pro on fal.ai, per audio second
+        cost = {
+            "actor_image_flux": 0.05,
+            "voiceover_elevenlabs": round(len(full_narration) * 0.00003, 3),
+            "talking_head_kling_pro": round(audio_duration * KLING_PRO_PER_SEC, 2),
             "broll_flux": round(len(broll_clips) * 0.05, 2),
             "ffmpeg_compositing": 0.00,
         }

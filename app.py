@@ -3283,7 +3283,12 @@ async def gallery_html_page():
         product = html_mod.escape(v.get("product_name", ""))
         caption = html_mod.escape(v.get("caption", "")[:120])
 
-        mode_badge = '<span style="background:#22c55e;color:#000;padding:2px 8px;border-radius:9999px;font-size:10px;font-weight:700">LOW COST</span>' if mode == "lowcost" else '<span style="background:#8b5cf6;color:#fff;padding:2px 8px;border-radius:9999px;font-size:10px;font-weight:700">PREMIUM</span>'
+        if mode == "lowcost":
+            mode_badge = '<span style="background:#22c55e;color:#000;padding:2px 8px;border-radius:9999px;font-size:10px;font-weight:700">LOW COST</span>'
+        elif mode == "maximum":
+            mode_badge = '<span style="background:#f59e0b;color:#000;padding:2px 8px;border-radius:9999px;font-size:10px;font-weight:700">MAXIMUM</span>'
+        else:
+            mode_badge = '<span style="background:#8b5cf6;color:#fff;padding:2px 8px;border-radius:9999px;font-size:10px;font-weight:700">PREMIUM</span>'
 
         cards_html += f'''
         <a href="/video/{video_id}" style="text-decoration:none;color:inherit">
@@ -3362,7 +3367,7 @@ async def video_html_page(video_id: str):
 
     ld_json = f'{{"@context":"https://schema.org","@type":"VideoObject","name":"{title}","description":"{caption}","thumbnailUrl":"{actor_url}","contentUrl":"{video_url}","uploadDate":"{created}","duration":"PT{int(duration)}S","width":1080,"height":1920,"inLanguage":"{language}"}}'
 
-    mode_label = "Low Cost" if mode == "lowcost" else "Premium"
+    mode_label = {"lowcost": "Low Cost", "maximum": "Maximum"}.get(mode, "Premium")
 
     return f'''<!DOCTYPE html>
 <html lang="{language}">
@@ -3434,7 +3439,7 @@ class SaaSGenerateRequest(BaseModel):
     actor_description: Optional[str] = None
     selected_actor_url: Optional[str] = None  # Pre-selected actor image URL
     retry_job_id: Optional[str] = None
-    video_mode: str = "lowcost"  # "lowcost" or "premium"
+    video_mode: str = "lowcost"  # "lowcost" | "premium" | "maximum"
     # Publishing to the public /gallery is opt-in: generated videos carry the
     # user's product name, URL and full script.
     share_to_gallery: bool = False

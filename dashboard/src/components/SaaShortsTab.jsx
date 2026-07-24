@@ -472,7 +472,7 @@ export default function SaaShortsTab({ openrouterKey, orTextModel, elevenLabsKey
               {/* Video Mode Selector */}
               <div>
                 <label className="eyebrow block mb-3">Video Mode</label>
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
                   <button
                     onClick={() => setVideoMode('lowcost')}
                     className={`card card-hover p-4 text-left ${
@@ -498,6 +498,19 @@ export default function SaaShortsTab({ openrouterKey, orTextModel, elevenLabsKey
                     </div>
                     <p className="readout mb-1.5">~$2.00 / VIDEO</p>
                     <p className="text-xs text-muted leading-relaxed">Kling Avatar v2 Standard. Full integrated movement.</p>
+                  </button>
+                  <button
+                    onClick={() => setVideoMode('maximum')}
+                    className={`card card-hover p-4 text-left ${
+                      videoMode === 'maximum' ? 'border-brass' : ''
+                    }`}
+                  >
+                    <div className="flex items-center justify-between mb-1.5 gap-2">
+                      <span className={`text-sm font-medium lowercase ${videoMode === 'maximum' ? 'text-ink' : 'text-ink2'}`}>Maximum</span>
+                      <span className="badge-brass">top tier</span>
+                    </div>
+                    <p className="readout mb-1.5">~$3.00 / VIDEO</p>
+                    <p className="text-xs text-muted leading-relaxed">Kling Avatar v2 Pro. Highest fidelity movement &amp; lip-sync.</p>
                   </button>
                 </div>
               </div>
@@ -1191,7 +1204,7 @@ export default function SaaShortsTab({ openrouterKey, orTextModel, elevenLabsKey
               <div className="card p-4">
                 <div className="flex items-center justify-between mb-3">
                   <span className="eyebrow">Estimated Cost</span>
-                  <span className="readout text-ink">~${videoMode === 'lowcost' ? '0.65' : '2.50'}</span>
+                  <span className="readout text-ink">~${videoMode === 'lowcost' ? '0.65' : videoMode === 'maximum' ? '3.00' : '2.50'}</span>
                 </div>
                 <div className="space-y-1">
                   {(videoMode === 'lowcost'
@@ -1200,6 +1213,13 @@ export default function SaaShortsTab({ openrouterKey, orTextModel, elevenLabsKey
                         ['ElevenLabs voice', '$0.10'],
                         ['Hailuo 2.3 img2video', '$0.19'],
                         ['VEED Lipsync', '$0.20'],
+                        ['Flux b-roll', '$0.10'],
+                      ]
+                    : videoMode === 'maximum'
+                    ? [
+                        ['Flux image', '$0.05'],
+                        ['ElevenLabs voice', '$0.10'],
+                        ['Kling avatar Pro', '~$2.55'],
                         ['Flux b-roll', '$0.10'],
                       ]
                     : [
@@ -1256,7 +1276,7 @@ export default function SaaShortsTab({ openrouterKey, orTextModel, elevenLabsKey
                 ) : !selectedActor ? (
                   <><User size={14} /> Select an actor first</>
                 ) : (
-                  <><Film size={14} /> Generate video (~${videoMode === 'lowcost' ? '0.65' : '2.00'})</>
+                  <><Film size={14} /> Generate video (~${videoMode === 'lowcost' ? '0.65' : videoMode === 'maximum' ? '3.00' : '2.00'})</>
                 )}
               </button>
             </div>
