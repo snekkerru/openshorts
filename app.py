@@ -148,6 +148,22 @@ def gemini_missing_error():
     return HTTPException(status_code=400, detail="Missing X-Gemini-Key header")
 
 
+def _image_opts_from_headers(quality=None, aspect=None, resolution=None) -> dict:
+    """Collect the per-model fal image params sent by the frontend.
+
+    Only the keys the chosen model reads are used downstream (see
+    saasshorts.IMAGE_MODELS), so passing all three is harmless.
+    """
+    opts = {}
+    if quality:
+        opts["quality"] = quality
+    if aspect:
+        opts["aspect_ratio"] = aspect
+    if resolution:
+        opts["resolution"] = resolution
+    return opts
+
+
 def openrouter_missing_error():
     """4xx when no OpenRouter key could be resolved (mirrors gemini_missing_error)."""
     if BILLING_ENABLED:
@@ -3119,12 +3135,17 @@ async def saasshorts_actor_options(
     req: SaaSActorRequest,
     request: Request,
     x_fal_key: Optional[str] = Header(None, alias="X-Fal-Key"),
+    x_fal_image_model: Optional[str] = Header(None, alias="X-Fal-Image-Model"),
+    x_fal_image_quality: Optional[str] = Header(None, alias="X-Fal-Image-Quality"),
+    x_fal_image_aspect: Optional[str] = Header(None, alias="X-Fal-Image-Aspect"),
+    x_fal_image_resolution: Optional[str] = Header(None, alias="X-Fal-Image-Resolution"),
 ):
     """Generate multiple actor image options for the user to choose from."""
     await require_managed_entitlement(request)
     fal_key = x_fal_key
     if not fal_key:
         raise HTTPException(status_code=400, detail="Missing fal.ai API Key")
+    image_opts = _image_opts_from_headers(x_fal_image_quality, x_fal_image_aspect, x_fal_image_resolution)
 
     try:
         job_id = str(uuid.uuid4())
@@ -3139,6 +3160,8 @@ async def saasshorts_actor_options(
                 generate_actor_images,
                 req.actor_description, fal_key, out_dir, "actor", req.num_options,
                 product_description=req.product_description,
+                image_model=x_fal_image_model,
+                image_opts=image_opts,
             ),
         )
 
@@ -3451,6 +3474,10 @@ async def saasshorts_generate(
     request: Request,
     x_fal_key: Optional[str] = Header(None, alias="X-Fal-Key"),
     x_elevenlabs_key: Optional[str] = Header(None, alias="X-ElevenLabs-Key"),
+    x_fal_image_model: Optional[str] = Header(None, alias="X-Fal-Image-Model"),
+    x_fal_image_quality: Optional[str] = Header(None, alias="X-Fal-Image-Quality"),
+    x_fal_image_aspect: Optional[str] = Header(None, alias="X-Fal-Image-Aspect"),
+    x_fal_image_resolution: Optional[str] = Header(None, alias="X-Fal-Image-Resolution"),
 ):
     """Generate a SaaS UGC video from a script. Returns a job_id for polling."""
     await require_managed_entitlement(request)
@@ -3532,6 +3559,8 @@ async def saasshorts_generate(
     config = {
         "fal_key": fal_key,
         "elevenlabs_key": elevenlabs_key,
+        "image_model": x_fal_image_model,
+        "image_opts": _image_opts_from_headers(x_fal_image_quality, x_fal_image_aspect, x_fal_image_resolution),
         "voice_id": req.voice_id or "21m00Tcm4TlvDq8ikWAM",
         "actor_description": req.actor_description,
         "selected_actor_path": selected_actor_path,

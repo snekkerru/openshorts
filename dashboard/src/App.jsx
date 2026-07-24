@@ -205,6 +205,11 @@ function App() {
     if (stored) return decrypt(stored);
     return '';
   });
+  // fal.ai image model + per-model params (portrait + b-roll; stored plain)
+  const [falImageModel, setFalImageModel] = useState(() => localStorage.getItem('falImageModel_v1') || 'fal-ai/flux-2-pro');
+  const [falImageQuality, setFalImageQuality] = useState(() => localStorage.getItem('falImageQuality_v1') || 'high');
+  const [falImageAspect, setFalImageAspect] = useState(() => localStorage.getItem('falImageAspect_v1') || '9:16');
+  const [falImageResolution, setFalImageResolution] = useState(() => localStorage.getItem('falImageResolution_v1') || '2K');
 
   // OpenRouter API State (AI Shorts text calls) - Load encrypted
   const [openrouterKey, setOpenrouterKey] = useState(() => {
@@ -466,6 +471,19 @@ function App() {
       localStorage.setItem('falKey_v1', encrypt(falKey));
     }
   }, [falKey]);
+
+  useEffect(() => {
+    localStorage.setItem('falImageModel_v1', falImageModel);
+  }, [falImageModel]);
+  useEffect(() => {
+    localStorage.setItem('falImageQuality_v1', falImageQuality);
+  }, [falImageQuality]);
+  useEffect(() => {
+    localStorage.setItem('falImageAspect_v1', falImageAspect);
+  }, [falImageAspect]);
+  useEffect(() => {
+    localStorage.setItem('falImageResolution_v1', falImageResolution);
+  }, [falImageResolution]);
 
   useEffect(() => {
     if (openrouterKey) {
@@ -1180,6 +1198,66 @@ function App() {
                       Keys are only stored in your browser. Sent to backend only to process requests.
                     </span>
                   </p>
+                  <label className="block text-sm text-muted pt-2">Image model (actor portrait + b-roll)</label>
+                  <select
+                    value={falImageModel}
+                    onChange={(e) => setFalImageModel(e.target.value)}
+                    className="input-field"
+                  >
+                    <option value="fal-ai/flux-2-pro">FLUX.2 Pro</option>
+                    <option value="openai/gpt-image-2">GPT Image 2</option>
+                    <option value="fal-ai/nano-banana-2">Nano Banana 2</option>
+                  </select>
+
+                  {falImageModel === 'openai/gpt-image-2' && (
+                    <div className="space-y-2">
+                      <label className="block text-sm text-muted">Quality</label>
+                      <select
+                        value={falImageQuality}
+                        onChange={(e) => setFalImageQuality(e.target.value)}
+                        className="input-field"
+                      >
+                        <option value="auto">Auto</option>
+                        <option value="low">Low</option>
+                        <option value="medium">Medium</option>
+                        <option value="high">High</option>
+                      </select>
+                    </div>
+                  )}
+
+                  {falImageModel === 'fal-ai/nano-banana-2' && (
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                      <div className="space-y-2">
+                        <label className="block text-sm text-muted">Aspect ratio</label>
+                        <select
+                          value={falImageAspect}
+                          onChange={(e) => setFalImageAspect(e.target.value)}
+                          className="input-field"
+                        >
+                          {['9:16', '3:4', '2:3', '4:5', '1:1', '16:9'].map((r) => (
+                            <option key={r} value={r}>{r}</option>
+                          ))}
+                        </select>
+                      </div>
+                      <div className="space-y-2">
+                        <label className="block text-sm text-muted">Resolution</label>
+                        <select
+                          value={falImageResolution}
+                          onChange={(e) => setFalImageResolution(e.target.value)}
+                          className="input-field"
+                        >
+                          {['512x512', '1K', '2K', '4K'].map((r) => (
+                            <option key={r} value={r}>{r}</option>
+                          ))}
+                        </select>
+                      </div>
+                    </div>
+                  )}
+
+                  <p className="text-xs text-muted leading-relaxed">
+                    Model for AI actor photos and b-roll stills. FLUX.2 Pro is the default;
+                    GPT Image 2 and Nano Banana 2 expose their own quality / aspect / resolution options above.
+                  </p>
                 </div>
               </div>
             </div>
@@ -1187,7 +1265,7 @@ function App() {
 
           {/* View: SaaS Shorts */}
           {activeTab === 'saasshorts' && (
-            <SaaShortsTab openrouterKey={openrouterKey} orTextModel={orTextModel} elevenLabsKey={elevenLabsKey} falKey={falKey} uploadPostKey={uploadPostKey} uploadUserId={uploadUserId} managed={isManaged} />
+            <SaaShortsTab openrouterKey={openrouterKey} orTextModel={orTextModel} elevenLabsKey={elevenLabsKey} falKey={falKey} falImageModel={falImageModel} falImageQuality={falImageQuality} falImageAspect={falImageAspect} falImageResolution={falImageResolution} uploadPostKey={uploadPostKey} uploadUserId={uploadUserId} managed={isManaged} />
           )}
 
           {/* View: AI Agent */}

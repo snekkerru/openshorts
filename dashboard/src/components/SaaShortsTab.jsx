@@ -48,7 +48,14 @@ const RU_VOICES = [
   { voice_id: 'vpUqfpCIn34tjFW4KHjt', name: 'Русский мужской 2', labels: { gender: 'male', accent: 'russian' } },
 ];
 
-export default function SaaShortsTab({ openrouterKey, orTextModel, elevenLabsKey, falKey, uploadPostKey, uploadUserId, managed = false }) {
+export default function SaaShortsTab({ openrouterKey, orTextModel, elevenLabsKey, falKey, falImageModel, falImageQuality, falImageAspect, falImageResolution, uploadPostKey, uploadUserId, managed = false }) {
+  // fal.ai image model + only the params the chosen model actually reads.
+  const falImageHeaders = {
+    ...(falImageModel ? { 'X-Fal-Image-Model': falImageModel } : {}),
+    ...(falImageModel === 'openai/gpt-image-2' && falImageQuality ? { 'X-Fal-Image-Quality': falImageQuality } : {}),
+    ...(falImageModel === 'fal-ai/nano-banana-2' && falImageAspect ? { 'X-Fal-Image-Aspect': falImageAspect } : {}),
+    ...(falImageModel === 'fal-ai/nano-banana-2' && falImageResolution ? { 'X-Fal-Image-Resolution': falImageResolution } : {}),
+  };
   // Managed (hosted plan): script LLM + Upload-Post run server-side via the
   // bearer token — no BYOK OpenRouter key needed. fal.ai + ElevenLabs stay BYOK.
   const orHeaders = {
@@ -341,6 +348,7 @@ export default function SaaShortsTab({ openrouterKey, orTextModel, elevenLabsKey
           'Content-Type': 'application/json',
           'X-Fal-Key': falKey,
           'X-ElevenLabs-Key': elevenLabsKey,
+          ...falImageHeaders,
         },
         body: JSON.stringify({
           script: scriptToSend,
@@ -388,6 +396,7 @@ export default function SaaShortsTab({ openrouterKey, orTextModel, elevenLabsKey
           'Content-Type': 'application/json',
           'X-Fal-Key': falKey,
           'X-ElevenLabs-Key': elevenLabsKey,
+          ...falImageHeaders,
         },
         body: JSON.stringify({
           script: scriptToSend,
@@ -1131,7 +1140,7 @@ export default function SaaShortsTab({ openrouterKey, orTextModel, elevenLabsKey
                     try {
                       const res = await apiFetch('/api/saasshorts/actor-options', {
                         method: 'POST',
-                        headers: { 'Content-Type': 'application/json', 'X-Fal-Key': falKey },
+                        headers: { 'Content-Type': 'application/json', 'X-Fal-Key': falKey, ...falImageHeaders },
                         body: JSON.stringify({ actor_description: actorDescription, num_options: 3 }),
                       });
                       if (res.ok) {

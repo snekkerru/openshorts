@@ -42,6 +42,48 @@ DEFAULT_VOICES = {
 # Text calls go through OpenRouter (llm.py); model comes from the
 # X-OR-Text-Model header → OR_TEXT_MODEL env → llm.DEFAULT_TEXT_MODEL.
 
+# Image generation (actor portraits + b-roll stills) runs on fal.ai. The model
+# is chosen in Settings (X-Fal-Image-Model → FAL_IMAGE_MODEL env). Only these
+# three endpoints are supported; each needs a different input shape, so the
+# per-model `build` closure maps (prompt, opts, seed) → the fal request body.
+# Portraits/b-roll are for 9:16 video, hence the vertical size defaults.
+DEFAULT_IMAGE_MODEL = "fal-ai/flux-2-pro"
+
+IMAGE_MODELS = {
+    "fal-ai/flux-2-pro": {
+        "build": lambda prompt, opts, seed: {
+            "prompt": prompt,
+            "image_size": "portrait_4_3",
+            "safety_tolerance": 5,
+            **({"seed": seed} if seed is not None else {}),
+        },
+    },
+    "openai/gpt-image-2": {
+        "build": lambda prompt, opts, seed: {
+            "prompt": prompt,
+            "image_size": "portrait_4_3",
+            "quality": opts.get("quality") or "high",
+        },
+    },
+    "fal-ai/nano-banana-2": {
+        "build": lambda prompt, opts, seed: {
+            "prompt": prompt,
+            "aspect_ratio": opts.get("aspect_ratio") or "9:16",
+            "resolution": opts.get("resolution") or "2K",
+        },
+    },
+}
+
+
+def resolve_image_model(model: str = None) -> str:
+    model = model or os.environ.get("FAL_IMAGE_MODEL") or DEFAULT_IMAGE_MODEL
+    return model if model in IMAGE_MODELS else DEFAULT_IMAGE_MODEL
+
+
+def _build_image_input(model_id: str, prompt: str, opts: dict = None, seed: int = None) -> dict:
+    """Build the fal request body for the chosen image model."""
+    return IMAGE_MODELS[model_id]["build"](prompt, opts or {}, seed)
+
 
 # ═══════════════════════════════════════════════════════════════════════
 # Phase 1: Website Scraping, Web Research & Analysis
@@ -640,10 +682,15 @@ def _fal_upload_file(file_path: str, fal_key: str) -> str:
 
 def generate_actor_images(
     description: str, fal_key: str, output_dir: str, title_slug: str, num_options: int = 3,
-    product_description: str = None,
+    product_description: str = None, image_model: str = None, image_opts: dict = None,
 ) -> List[str]:
-    """Generate multiple hyper-realistic actor portrait options using Flux 2 Pro."""
-    print(f"[SaaSShorts] 🎨 Generating {num_options} actor image options (Flux 2 Pro)...")
+    """Generate multiple hyper-realistic actor portrait options.
+
+    image_model: fal.ai image endpoint (default fal-ai/flux-2-pro).
+    image_opts: model-specific params (quality / aspect_ratio / resolution).
+    """
+    model_id = resolve_image_model(image_model)
+    print(f"[SaaSShorts] 🎨 Generating {num_options} actor image options ({model_id})...")
 
     # Clean description: strip scene/actions, keep only physical appearance
     clean_desc = description
@@ -654,26 +701,22 @@ def generate_actor_images(
                 clean_desc = clean_desc[:idx].rstrip(" ,.")
 
     import random
-    img_num = random.randint(1000, 9999)
 
-    if product_description:
-        prompt = f"""IMG_{img_num}.jpg Raw candid selfie of {clean_desc}, casually holding {product_description}, showing it to the camera with a natural smile. Product clearly visible in hand. Casual and real, not an ad. Low quality front camera, soft room lighting. Reddit selfie."""
-    else:
-        prompt = f"""IMG_{img_num}.jpg Raw candid selfie of {clean_desc}, sitting at their desk at home, looking at camera with a relaxed natural smile. Headphones around neck, monitor glow behind them. Not posed, casual and real. Low quality front camera, soft room lighting. Reddit selfie."""
+    def _prompt():
+        # Fresh IMG_ number per option so models without a seed param still
+        # produce distinct actors across the parallel calls.
+        img_num = random.randint(1000, 9999)
+        if product_description:
+            return f"""IMG_{img_num}.jpg Raw candid selfie of {clean_desc}, casually holding {product_description}, showing it to the camera with a natural smile. Product clearly visible in hand. Casual and real, not an ad. Low quality front camera, soft room lighting. Reddit selfie."""
+        return f"""IMG_{img_num}.jpg Raw candid selfie of {clean_desc}, sitting at their desk at home, looking at camera with a relaxed natural smile. Headphones around neck, monitor glow behind them. Not posed, casual and real. Low quality front camera, soft room lighting. Reddit selfie."""
 
-    print(f"[SaaSShorts]   Prompt: {prompt[:120]}...{' (with product)' if product_description else ''}")
+    print(f"[SaaSShorts]   Actor: {clean_desc[:80]}...{' (with product)' if product_description else ''}")
 
     paths = []
-    # Flux 2 Pro — #1 for photorealistic faces
     def _gen_one(i):
         result = _fal_run(
-            "fal-ai/flux-2-pro",
-            {
-                "prompt": prompt,
-                "image_size": "portrait_4_3",
-                "safety_tolerance": 5,
-                "seed": random.randint(0, 999999),
-            },
+            model_id,
+            _build_image_input(model_id, _prompt(), image_opts, seed=random.randint(0, 999999)),
             fal_key,
             timeout=300,
         )
@@ -710,12 +753,12 @@ def generate_actor_images(
 
 
 def generate_actor_image(
-    description: str, fal_key: str, output_path: str
+    description: str, fal_key: str, output_path: str, image_model: str = None, image_opts: dict = None
 ) -> str:
-    """Generate a single actor image using Recraft V4."""
+    """Generate a single actor image (fal.ai, model configurable in Settings)."""
     output_dir = os.path.dirname(output_path)
     title_slug = os.path.basename(output_path).replace("_actor.png", "")
-    paths = generate_actor_images(description, fal_key, output_dir, title_slug, num_options=1)
+    paths = generate_actor_images(description, fal_key, output_dir, title_slug, num_options=1, image_model=image_model, image_opts=image_opts)
     if paths:
         import shutil
         shutil.move(paths[0], output_path)
@@ -920,29 +963,28 @@ def generate_talking_head_lowcost(
 
 
 def generate_broll(
-    prompt: str, fal_key: str, output_path: str, duration: str = "5"
+    prompt: str, fal_key: str, output_path: str, duration: str = "5", image_model: str = None, image_opts: dict = None
 ) -> str:
     """
-    Generate b-roll: Recraft V4 image + Ken Burns zoom effect via FFmpeg.
+    Generate b-roll: a still image (fal.ai, model configurable in Settings)
+    + Ken Burns zoom effect via FFmpeg.
     """
-    print(f"[SaaSShorts] 🎬 Generating b-roll image + Ken Burns effect...")
+    model_id = resolve_image_model(image_model)
+    print(f"[SaaSShorts] 🎬 Generating b-roll image ({model_id}) + Ken Burns effect...")
 
     dur_secs = int(duration)
     img_path = output_path.replace(".mp4", "_img.png")
 
-    # Step 1: Generate a high-quality still image with Flux 2 Pro
+    # Step 1: Generate a high-quality still image
+    broll_prompt = f"{prompt}. Cinematic, shallow depth of field, professional photography."
     result = _fal_run(
-        "fal-ai/flux-2-pro",
-        {
-            "prompt": f"{prompt}. Cinematic, shallow depth of field, professional photography.",
-            "image_size": "portrait_4_3",
-            "safety_tolerance": 5,
-        },
+        model_id,
+        _build_image_input(model_id, broll_prompt, image_opts),
         fal_key,
         timeout=300,
     )
 
-    # Flux 2 Pro returns images in "images" or "output" key
+    # fal image models return images in the "images" or "output" key
     images = result.get("images") or result.get("output", [])
     if not images:
         raise Exception(f"No images in b-roll result: {list(result.keys())}")
@@ -1283,6 +1325,8 @@ def generate_full_video(
 
     fal_key = config["fal_key"]
     elevenlabs_key = config["elevenlabs_key"]
+    image_model = config.get("image_model")
+    image_opts = config.get("image_opts")
     voice_id = config.get("voice_id", "21m00Tcm4TlvDq8ikWAM")
     actor_desc = config.get("actor_description") or script.get("actor_description", "a young professional in their late 20s, wearing a casual modern outfit, clean background")
 
@@ -1324,7 +1368,7 @@ def generate_full_video(
         log(f"[1/6] Generating {' + '.join(tasks)} (parallel)...")
 
         with ThreadPoolExecutor(max_workers=2) as executor:
-            future_img = executor.submit(generate_actor_image, actor_desc, fal_key, actor_img) if need_img else None
+            future_img = executor.submit(generate_actor_image, actor_desc, fal_key, actor_img, image_model, image_opts) if need_img else None
             future_voice = executor.submit(
                 generate_voiceover, full_narration, elevenlabs_key, audio_path, voice_id
             ) if need_voice else None
@@ -1383,7 +1427,7 @@ def generate_full_video(
                 futures = {}
                 for i, seg, broll_path in broll_to_generate:
                     future = executor.submit(
-                        generate_broll, seg["broll_prompt"], fal_key, broll_path
+                        generate_broll, seg["broll_prompt"], fal_key, broll_path, "5", image_model, image_opts
                     )
                     futures[future] = {"seg": seg, "path": broll_path}
 
