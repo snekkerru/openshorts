@@ -895,7 +895,7 @@ def generate_talking_head(
 
     # Pro is markedly slower than Standard; give it a longer poll window so
     # fal jobs that are still IN_PROGRESS aren't abandoned at 600s.
-    poll_timeout = 1200 if tier == "pro" else 900
+    poll_timeout = 1800 if tier == "pro" else 900
     result = _fal_run(
         model_id,
         {
